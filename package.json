@@ -4,13 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/prepare-src.mjs && vite",
+    "build": "node scripts/prepare-src.mjs && vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "prepare-src": "node scripts/prepare-src.mjs"
   },
   "dependencies": {
     "@base44/sdk": "^0.8.53",
