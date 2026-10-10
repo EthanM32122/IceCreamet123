@@ -1,0 +1,12 @@
+ICECREAMET SOURCE DOWNLOAD
+
+Unzip this archive and upload the extracted files and folders to GitHub, not just the ZIP.
+Set the two VITE_BASE44 variables from .env.example in your host before building.
+Build: npm install && npm run build
+Static output folder: dist
+Node/Railway start: node server.js
+PORT is supplied by the host; local default is 3000.
+
+This is a source snapshot, not a database backup. No player records, uploaded media files, or private secrets are included. Media links still use their existing URLs. Accounts, database, and backend functions still run on Base44. Hosting this frontend does not bypass Base44 backend billing limits. Backend functions are currently blocked until November 1, 2026 UTC, or a workspace upgrade.
+
+The archive includes an ES-module-compatible version of the Node server. Keep private Stripe/Discord credentials in Base44, never GitHub or VITE_ variables.
