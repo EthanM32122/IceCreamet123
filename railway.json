@@ -1,9 +1,11 @@
 {
+  "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "buildCommand": "npm install && npm run build"
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install --include=dev && npm run build"
   },
   "deploy": {
-    "startCommand": "node server.js",
+    "startCommand": "npm start",
     "healthcheckPath": "/",
     "restartPolicyType": "ON_FAILURE"
   }
