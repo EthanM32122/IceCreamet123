@@ -7,28 +7,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname)
 
 /**
- * This repo stores frontend source at the ROOT (not under src/):
+ * Frontend source lives at the REPO ROOT (not under src/):
  *   App.jsx, main.jsx, index.css, pages/, lib/, api/, hooks/,
- *   ui/, game/, minigames/, stats/, and root-level components.
+ *   ui/, game/, minigames/, stats/, plus root-level component files.
  *
- * Imports use @/components/ui/* and @/components/game/* paths that
- * Base44's editor expects, so we map those folders explicitly.
- *
- * The @base44/vite-plugin is intentionally NOT used here: it hardcodes
- * @/ -> /src/ which does not exist in this snapshot and breaks Railway builds.
- * Auth/data still go through @base44/sdk in api/base44Client.js.
+ * Code imports use Base44-style paths (@/components/ui/..., @/lib/...).
+ * Map those to the real folders. Do NOT use @base44/vite-plugin — it
+ * hardcodes @/ -> /src/ and breaks this layout on Railway.
  */
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      { find: '@/components/ui', replacement: path.join(root, 'ui') },
-      { find: '@/components/game', replacement: path.join(root, 'game') },
-      { find: '@/components/minigames', replacement: path.join(root, 'minigames') },
-      { find: '@/components/stats', replacement: path.join(root, 'stats') },
-      // @/components/ProtectedRoute -> ./ProtectedRoute.jsx etc.
-      { find: '@/components/', replacement: root + path.sep },
-      { find: '@', replacement: root },
+      { find: /^@\/components\/ui(\/.*)?$/, replacement: path.join(root, 'ui') + '$1' },
+      { find: /^@\/components\/game(\/.*)?$/, replacement: path.join(root, 'game') + '$1' },
+      { find: /^@\/components\/minigames(\/.*)?$/, replacement: path.join(root, 'minigames') + '$1' },
+      { find: /^@\/components\/stats(\/.*)?$/, replacement: path.join(root, 'stats') + '$1' },
+      // @/components/ProtectedRoute -> /ProtectedRoute (root file)
+      { find: /^@\/components\/([^/]+)$/, replacement: path.join(root, '$1') },
+      // @/lib/foo, @/pages/Home, @/App.jsx, @/index.css, ...
+      { find: /^@\/(.*)$/, replacement: path.join(root, '$1') },
     ],
   },
   build: {
