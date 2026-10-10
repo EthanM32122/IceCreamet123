@@ -7,12 +7,44 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname)
 
+// base44 vite-plugin hardcodes @/ -> <root>/src/.
+// This repo keeps source at the root (ui/, game/, pages/, lib/, ...),
+// so we force-correct the alias AFTER base44 runs (enforce: 'post').
+function rootAliasPlugin() {
+  const aliases = [
+    { find: '@/components/ui', replacement: path.join(root, 'ui') },
+    { find: '@/components/game', replacement: path.join(root, 'game') },
+    { find: '@/components/minigames', replacement: path.join(root, 'minigames') },
+    { find: '@/components/stats', replacement: path.join(root, 'stats') },
+    // @/components/Foo -> ./Foo.jsx (root-level component files)
+    { find: /^@\/components\/([^/]+)$/, replacement: path.join(root, '$1') },
+    { find: '@/components/', replacement: root + path.sep },
+    // Everything else: @/lib, @/pages, @/api, @/hooks, @/App.jsx, ...
+    { find: '@', replacement: root },
+  ]
+
+  const apply = (config) => {
+    config.resolve = config.resolve || {}
+    // Replace whatever base44 set so @ never points at missing /src
+    config.resolve.alias = aliases
+  }
+
+  return {
+    name: 'icecreamet-root-alias',
+    enforce: 'post',
+    config: apply,
+    configResolved(config) {
+      // configResolved receives a resolved config; mutate alias again in case
+      // base44 wrote it during its own configResolved.
+      config.resolve.alias = aliases
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     base44({
-      // Support for legacy code that imports the base44 SDK with @/integrations, @/entities, etc.
-      // can be removed if the code has been updated to use the new SDK imports from @base44/sdk
       legacySDKImports: process.env.BASE44_LEGACY_SDK_IMPORTS === 'true',
       hmrNotifier: true,
       navigationNotifier: true,
@@ -20,19 +52,6 @@ export default defineConfig({
       visualEditAgent: true
     }),
     react(),
+    rootAliasPlugin(),
   ],
-  resolve: {
-    // Array form: more-specific finds MUST come before the generic '@' alias.
-    // Imports use @/components/ui/* but files live in ./ui/* (same for game/minigames/stats).
-    // Root-level component files (ProtectedRoute, ScrollToTop, ...) are imported as
-    // @/components/Name and resolve via the @/components/ -> root mapping.
-    alias: [
-      { find: '@/components/ui', replacement: path.join(root, 'ui') },
-      { find: '@/components/game', replacement: path.join(root, 'game') },
-      { find: '@/components/minigames', replacement: path.join(root, 'minigames') },
-      { find: '@/components/stats', replacement: path.join(root, 'stats') },
-      { find: '@/components/', replacement: root + path.sep },
-      { find: '@', replacement: root },
-    ],
-  },
 });
