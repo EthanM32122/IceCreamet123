@@ -1,6 +1,10 @@
 import base44 from "@base44/vite-plugin"
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -15,5 +19,16 @@ export default defineConfig({
       visualEditAgent: true
     }),
     react(),
-  ]
+  ],
+  resolve: {
+    alias: {
+      // Source lives at repo root (not under src/). Map @ and common shadcn paths.
+      '@': path.resolve(__dirname, '.'),
+      '@/components/ui': path.resolve(__dirname, 'ui'),
+      '@/components/game': path.resolve(__dirname, 'game'),
+      '@/components/minigames': path.resolve(__dirname, 'minigames'),
+      '@/components/stats': path.resolve(__dirname, 'stats'),
+      '@/components': path.resolve(__dirname, '.'),
+    }
+  }
 });
