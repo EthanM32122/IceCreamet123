@@ -1,0 +1,111 @@
+{
+  "name": "Battle",
+  "type": "object",
+  "properties": {
+    "challenger_id": {
+      "type": "string"
+    },
+    "challenger_username": {
+      "type": "string"
+    },
+    "challenger_blook_id": {
+      "type": "string"
+    },
+    "challenger_blook_name": {
+      "type": "string"
+    },
+    "challenger_blook_image": {
+      "type": "string"
+    },
+    "challenger_blook_rarity": {
+      "type": "string"
+    },
+    "target_id": {
+      "type": "string"
+    },
+    "target_username": {
+      "type": "string"
+    },
+    "target_blook_id": {
+      "type": "string"
+    },
+    "target_blook_name": {
+      "type": "string"
+    },
+    "target_blook_image": {
+      "type": "string"
+    },
+    "target_blook_rarity": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "declined",
+        "cancelled",
+        "completed"
+      ],
+      "default": "pending"
+    },
+    "winner_id": {
+      "type": "string"
+    },
+    "winner_side": {
+      "type": "string",
+      "enum": [
+        "challenger",
+        "target"
+      ]
+    },
+    "log": {
+      "type": "string"
+    },
+    "tokens": {
+      "type": "number",
+      "default": 10000
+    },
+    "winner_settled": {
+      "type": "boolean",
+      "default": false
+    },
+    "challenger_refunded": {
+      "type": "boolean",
+      "default": false
+    },
+    "game": {
+      "type": "string",
+      "default": "pokemon"
+    }
+  },
+  "required": [
+    "challenger_id",
+    "target_id"
+  ],
+  "rls": {
+    "create": {
+      "data.challenger_id": "{{user.id}}"
+    },
+    "read": {},
+    "update": {
+      "$or": [
+        {
+          "data.challenger_id": "{{user.id}}"
+        },
+        {
+          "data.target_id": "{{user.id}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.challenger_id": "{{user.id}}"
+        },
+        {
+          "data.target_id": "{{user.id}}"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "name": "ClanMessage",
+  "type": "object",
+  "properties": {
+    "clan_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string"
+    },
+    "is_system": {
+      "type": "boolean",
+      "default": false
+    },
+    "user_role": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "clan_id",
+    "content"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "data.is_system": true
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "name": "Giveaway",
+  "type": "object",
+  "properties": {
+    "creator_id": {
+      "type": "string"
+    },
+    "creator_username": {
+      "type": "string"
+    },
+    "creator_avatar": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "prize_type": {
+      "type": "string",
+      "enum": [
+        "blook",
+        "tokens"
+      ],
+      "default": "tokens"
+    },
+    "blook_id": {
+      "type": "string"
+    },
+    "blook_name": {
+      "type": "string"
+    },
+    "blook_image_url": {
+      "type": "string"
+    },
+    "token_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "num_winners": {
+      "type": "number",
+      "default": 1
+    },
+    "giveaway_type": {
+      "type": "string",
+      "enum": [
+        "elimination_wheel",
+        "random_winner"
+      ],
+      "default": "random_winner"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "completed"
+      ],
+      "default": "active"
+    },
+    "end_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "string"
+    },
+    "winners": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "creator_id",
+    "title",
+    "prize_type",
+    "giveaway_type"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "data.creator_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.creator_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.creator_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

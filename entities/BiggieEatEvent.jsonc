@@ -1,0 +1,52 @@
+{
+  "name": "BiggieEatEvent",
+  "type": "object",
+  "properties": {
+    "target_username": {
+      "type": "string"
+    },
+    "target_avatar": {
+      "type": "string"
+    },
+    "blook_name": {
+      "type": "string"
+    },
+    "blook_image": {
+      "type": "string"
+    },
+    "eater_username": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_username",
+    "blook_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "read": null,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "name": "PacFarm",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "egg_taps": {
+      "type": "number",
+      "default": 0
+    },
+    "egg_started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "active_pokemon": {
+      "type": "string"
+    },
+    "watering_can": {
+      "type": "number",
+      "default": 3
+    },
+    "fertilizer": {
+      "type": "number",
+      "default": 3
+    },
+    "eggs": {
+      "type": "number",
+      "default": 3
+    },
+    "farm_xp": {
+      "type": "number",
+      "default": 0
+    },
+    "last_hatch": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_coin_claim": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "user_id"
+  ],
+  "rls": {
+    "create": {
+      "data.user_id": "{{user.id}}"
+    },
+    "read": {
+      "data.user_id": "{{user.id}}"
+    },
+    "update": {
+      "data.user_id": "{{user.id}}"
+    },
+    "delete": {
+      "data.user_id": "{{user.id}}"
+    }
+  }
+}

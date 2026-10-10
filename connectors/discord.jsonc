@@ -1,0 +1,9 @@
+{
+  "type": "discord",
+  "scopes": [
+    "messages.read",
+    "guilds",
+    "identify",
+    "email"
+  ]
+}

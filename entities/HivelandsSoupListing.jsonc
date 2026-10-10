@@ -1,0 +1,68 @@
+{
+  "name": "HivelandsSoupListing",
+  "type": "object",
+  "properties": {
+    "seller_id": {
+      "type": "string"
+    },
+    "seller_username": {
+      "type": "string"
+    },
+    "soup_blook_id": {
+      "type": "string"
+    },
+    "soup_name": {
+      "type": "string"
+    },
+    "soup_image_url": {
+      "type": "string"
+    },
+    "price": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "sold",
+        "cancelled"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "seller_id",
+    "soup_blook_id",
+    "price"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "data.seller_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "data.seller_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.seller_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "name": "GameSettings",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string"
+    },
+    "value": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "theme",
+        "text",
+        "news",
+        "general"
+      ]
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "dahig622@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "dahig622@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "dahig622@wcsmail.org"
+          }
+        }
+      ]
+    }
+  }
+}

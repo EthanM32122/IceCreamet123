@@ -1,0 +1,100 @@
+{
+  "name": "RedeemCode",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "prize_type": {
+      "type": "string",
+      "enum": [
+        "tokens",
+        "diamonds",
+        "blook"
+      ],
+      "default": "tokens"
+    },
+    "prize_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "blook_id": {
+      "type": "string"
+    },
+    "blook_name": {
+      "type": "string"
+    },
+    "max_uses": {
+      "type": "number",
+      "default": 1
+    },
+    "uses_count": {
+      "type": "number",
+      "default": 0
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "is_weekly": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, each user can redeem this code once every 7 days instead of only once ever."
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "prize_type"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "id": "6a99b529fd54567710eb02d5"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "id": "6a99b529fd54567710eb02d5"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "id": "6a99b529fd54567710eb02d5"
+          }
+        }
+      ]
+    }
+  }
+}

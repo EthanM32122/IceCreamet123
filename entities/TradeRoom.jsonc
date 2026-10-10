@@ -1,0 +1,119 @@
+{
+  "name": "TradeRoom",
+  "type": "object",
+  "properties": {
+    "player_a_id": {
+      "type": "string"
+    },
+    "player_a_username": {
+      "type": "string"
+    },
+    "player_a_avatar": {
+      "type": "string"
+    },
+    "player_b_id": {
+      "type": "string"
+    },
+    "player_b_username": {
+      "type": "string"
+    },
+    "player_b_avatar": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "completing",
+        "completed",
+        "cancelled",
+        "declined"
+      ],
+      "default": "pending"
+    },
+    "a_blooks": {
+      "type": "string"
+    },
+    "b_blooks": {
+      "type": "string"
+    },
+    "a_tokens": {
+      "type": "number",
+      "default": 0
+    },
+    "b_tokens": {
+      "type": "number",
+      "default": 0
+    },
+    "a_accepted": {
+      "type": "boolean",
+      "default": false
+    },
+    "b_accepted": {
+      "type": "boolean",
+      "default": false
+    },
+    "game": {
+      "type": "string",
+      "enum": [
+        "icecreamet",
+        "pokemon"
+      ],
+      "default": "icecreamet"
+    }
+  },
+  "required": [
+    "player_a_id",
+    "player_b_id"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.player_a_id": "{{user.id}}"
+        },
+        {
+          "data.player_b_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "data.player_a_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.player_a_id": "{{user.id}}"
+        },
+        {
+          "data.player_b_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "Poll",
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string"
+    },
+    "options": {
+      "type": "string"
+    },
+    "votes": {
+      "type": "string"
+    },
+    "creator_id": {
+      "type": "string"
+    },
+    "creator_username": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "game": {
+      "type": "string",
+      "enum": [
+        "icecreamet",
+        "pokemon"
+      ],
+      "default": "icecreamet"
+    }
+  },
+  "required": [
+    "question",
+    "options",
+    "creator_id",
+    "creator_username"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {},
+    "delete": {
+      "$or": [
+        {
+          "data.creator_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

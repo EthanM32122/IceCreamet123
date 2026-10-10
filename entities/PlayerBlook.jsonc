@@ -1,0 +1,86 @@
+{
+  "name": "PlayerBlook",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "blook_id": {
+      "type": "string"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1
+    },
+    "shiny_quantity": {
+      "type": "number",
+      "default": 0
+    },
+    "game": {
+      "type": "string",
+      "enum": [
+        "icecreamet",
+        "pokemon"
+      ],
+      "default": "icecreamet"
+    }
+  },
+  "required": [
+    "user_id",
+    "blook_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    }
+  }
+}

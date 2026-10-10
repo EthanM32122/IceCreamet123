@@ -1,0 +1,57 @@
+{
+  "name": "BiggieTrollEvent",
+  "type": "object",
+  "properties": {
+    "target_user_id": {
+      "type": "string"
+    },
+    "target_username": {
+      "type": "string"
+    },
+    "troll_type": {
+      "type": "string",
+      "enum": [
+        "rain",
+        "flip",
+        "quake",
+        "fog",
+        "disco",
+        "sit"
+      ]
+    },
+    "eater_username": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_user_id",
+    "troll_type"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "read": null,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "name": "AdminAbuse",
+  "type": "object",
+  "properties": {
+    "active": {
+      "type": "boolean",
+      "default": false
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "host_username": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string",
+      "description": "Latest announcement text \u2014 shown as a popup on all players' screens when it changes."
+    }
+  },
+  "required": [
+    "active"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    }
+  }
+}

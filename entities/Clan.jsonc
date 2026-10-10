@@ -1,0 +1,84 @@
+{
+  "name": "Clan",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "leader_id": {
+      "type": "string"
+    },
+    "leader_username": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string",
+      "default": "\ud83d\udee1\ufe0f"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "color": {
+      "type": "string"
+    },
+    "level": {
+      "type": "number",
+      "default": 1
+    },
+    "xp": {
+      "type": "number",
+      "default": 0
+    },
+    "shield_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tokens": {
+      "type": "number",
+      "default": 0
+    },
+    "paint_buckets": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "leader_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "data.leader_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.leader_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

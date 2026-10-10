@@ -1,0 +1,40 @@
+{
+  "name": "UsernameChange",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "old_username": {
+      "type": "string"
+    },
+    "new_username": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_id",
+    "old_username",
+    "new_username"
+  ],
+  "rls": {
+    "create": {
+      "data.user_id": "{{user.id}}"
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

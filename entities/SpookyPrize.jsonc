@@ -1,0 +1,74 @@
+{
+  "name": "SpookyPrize",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Blook name from the SPOOKY MONTH pack \u2014 must match exactly for granting."
+    },
+    "blook_id": {
+      "type": "string"
+    },
+    "seeds": {
+      "type": "number",
+      "description": "Pumpkin seeds required to unlock this prize."
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "order": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "seeds"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    }
+  }
+}

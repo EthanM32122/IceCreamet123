@@ -1,0 +1,60 @@
+{
+  "name": "InviteLink",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "inviter_user_id": {
+      "type": "string"
+    },
+    "inviter_username": {
+      "type": "string"
+    },
+    "inviter_avatar": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "uses": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "code",
+    "inviter_user_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "data.inviter_user_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "data.inviter_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.inviter_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

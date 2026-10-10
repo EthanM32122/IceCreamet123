@@ -1,0 +1,58 @@
+{
+  "name": "InviteApplication",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "inviter_user_id": {
+      "type": "string"
+    },
+    "inviter_username": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "age": {
+      "type": "number"
+    },
+    "discord_username": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "reviewed_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "email",
+    "reason"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

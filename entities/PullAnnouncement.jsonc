@@ -1,0 +1,57 @@
+{
+  "name": "PullAnnouncement",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "blook_id": {
+      "type": "string"
+    },
+    "blook_name": {
+      "type": "string"
+    },
+    "blook_image_url": {
+      "type": "string"
+    },
+    "pack_name": {
+      "type": "string"
+    },
+    "rarity": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "username",
+    "blook_name",
+    "rarity"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

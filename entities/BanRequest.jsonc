@@ -1,0 +1,69 @@
+{
+  "name": "BanRequest",
+  "type": "object",
+  "properties": {
+    "target_user_id": {
+      "type": "string"
+    },
+    "target_username": {
+      "type": "string"
+    },
+    "requester_id": {
+      "type": "string"
+    },
+    "requester_username": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "proof": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "reviewer_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_user_id",
+    "target_username",
+    "requester_id",
+    "reason"
+  ],
+  "rls": {
+    "create": {
+      "data.requester_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.requester_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

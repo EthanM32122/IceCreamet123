@@ -1,0 +1,69 @@
+{
+  "name": "HivelandsProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "coins": {
+      "type": "number",
+      "default": 0
+    },
+    "honey": {
+      "type": "number",
+      "default": 0
+    },
+    "ingredients_collected": {
+      "type": "string",
+      "default": "{}"
+    },
+    "soups_made": {
+      "type": "number",
+      "default": 0
+    },
+    "soups_sold": {
+      "type": "number",
+      "default": 0
+    },
+    "total_coins_earned": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "user_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "data.user_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

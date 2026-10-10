@@ -1,0 +1,112 @@
+{
+  "name": "Blook",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "uncommon",
+        "rare",
+        "epic",
+        "legendary",
+        "mythical",
+        "chroma",
+        "supreme",
+        "iridescent",
+        "unique",
+        "icecreamacle",
+        "paradox",
+        "elite"
+      ],
+      "default": "uncommon"
+    },
+    "pack_id": {
+      "type": "string"
+    },
+    "drop_chance": {
+      "type": "number",
+      "default": 10
+    },
+    "sell_price": {
+      "type": "number"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "release_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "bazaar_event": {
+      "type": "boolean",
+      "default": false
+    },
+    "game": {
+      "type": "string",
+      "enum": [
+        "icecreamet",
+        "pokemon"
+      ],
+      "default": "icecreamet"
+    },
+    "locked": {
+      "type": "boolean",
+      "default": false
+    },
+    "attacks": {
+      "type": "string"
+    },
+    "ability": {
+      "type": "string"
+    },
+    "login_prize": {
+      "type": "boolean",
+      "default": false
+    },
+    "shiny_allowed": {
+      "type": "boolean",
+      "default": true
+    },
+    "craftable": {
+      "type": "boolean",
+      "default": true
+    },
+    "crate_allowed": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "rarity"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

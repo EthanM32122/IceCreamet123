@@ -1,0 +1,279 @@
+{
+  "name": "PlayerProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "tokens": {
+      "type": "number",
+      "default": 500
+    },
+    "diamonds": {
+      "type": "number",
+      "default": 0
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "player",
+        "helper",
+        "moderator",
+        "admin",
+        "co-owner",
+        "executive-manager",
+        "owner",
+        "biggie"
+      ],
+      "default": "player"
+    },
+    "name_color": {
+      "type": "string"
+    },
+    "chat_color": {
+      "type": "string"
+    },
+    "equipped_banner_id": {
+      "type": "string"
+    },
+    "is_muted": {
+      "type": "boolean",
+      "default": false
+    },
+    "mute_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "muted_by": {
+      "type": "string"
+    },
+    "is_banned": {
+      "type": "boolean",
+      "default": false
+    },
+    "ban_reason": {
+      "type": "string"
+    },
+    "banned_by": {
+      "type": "string"
+    },
+    "has_set_username": {
+      "type": "boolean",
+      "default": false
+    },
+    "has_seen_news": {
+      "type": "boolean",
+      "default": false
+    },
+    "has_seen_rules": {
+      "type": "boolean",
+      "default": false
+    },
+    "total_packs_opened": {
+      "type": "number",
+      "default": 0
+    },
+    "join_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "luck_booster_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_chat_time": {
+      "type": "number",
+      "default": 0
+    },
+    "chat_spam_count": {
+      "type": "number",
+      "default": 0
+    },
+    "messages_sent": {
+      "type": "number",
+      "default": 0
+    },
+    "last_spin_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "level": {
+      "type": "number",
+      "default": 1
+    },
+    "xp": {
+      "type": "number",
+      "default": 0
+    },
+    "grenades": {
+      "type": "number",
+      "default": 0
+    },
+    "shields": {
+      "type": "number",
+      "default": 0
+    },
+    "minigame_window_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "minigame_cooldown_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "plus_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "plus_permanent": {
+      "type": "boolean",
+      "default": false
+    },
+    "last_plus_claim": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "theme_bg": {
+      "type": "string"
+    },
+    "unlocked_themes": {
+      "type": "string"
+    },
+    "last_seen": {
+      "type": "number",
+      "default": 0
+    },
+    "gtb_streak": {
+      "type": "number",
+      "default": 0
+    },
+    "bart_clicks": {
+      "type": "number",
+      "default": 0
+    },
+    "verity_unlocked": {
+      "type": "boolean",
+      "default": false
+    },
+    "verification_questions": {
+      "type": "string"
+    },
+    "verification_answers": {
+      "type": "string"
+    },
+    "verified_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pac_starter_opened": {
+      "type": "boolean",
+      "default": false
+    },
+    "email_disconnected": {
+      "type": "boolean",
+      "default": false
+    },
+    "profile_locked": {
+      "type": "boolean",
+      "default": false
+    },
+    "shiny_theme": {
+      "type": "string",
+      "default": "gold"
+    },
+    "shiny_avatar": {
+      "type": "boolean",
+      "default": false
+    },
+    "mine_slots": {
+      "type": "number",
+      "default": 5
+    },
+    "gradient_unlocked": {
+      "type": "boolean",
+      "default": false
+    },
+    "music_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "bart_popup_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "icecreamy_popup_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "custom_music_yt_id": {
+      "type": "string"
+    },
+    "music_playlist": {
+      "type": "string"
+    },
+    "playlist_unlocked": {
+      "type": "boolean",
+      "default": false
+    },
+    "login_streak": {
+      "type": "number",
+      "default": 0
+    },
+    "last_streak_claim": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pumpkin_seeds": {
+      "type": "number",
+      "default": 0
+    },
+    "claimed_spooky_prizes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_id",
+    "username"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "data.user_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "email": "macre523@wcsmail.org"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

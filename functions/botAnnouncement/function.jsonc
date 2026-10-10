@@ -1,0 +1,14 @@
+{
+  "name": "botAnnouncement",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "scheduled",
+      "name": "bot_announcement_10min",
+      "schedule_mode": "recurring",
+      "schedule_type": "simple",
+      "repeat_unit": "minutes",
+      "repeat_interval": 10
+    }
+  ]
+}

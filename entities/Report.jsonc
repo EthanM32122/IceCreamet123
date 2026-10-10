@@ -1,0 +1,60 @@
+{
+  "name": "Report",
+  "type": "object",
+  "properties": {
+    "target_user_id": {
+      "type": "string"
+    },
+    "target_username": {
+      "type": "string"
+    },
+    "reporter_id": {
+      "type": "string"
+    },
+    "reporter_username": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "proof": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "reviewed",
+        "dismissed"
+      ],
+      "default": "pending"
+    },
+    "reviewer_id": {
+      "type": "string"
+    },
+    "reviewer_username": {
+      "type": "string"
+    },
+    "reviewer_action": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_user_id",
+    "target_username",
+    "reporter_id",
+    "reason"
+  ],
+  "rls": {
+    "create": {
+      "data.reporter_id": "{{user.id}}"
+    },
+    "read": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
