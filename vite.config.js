@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const root = path.resolve(__dirname)
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -21,14 +22,17 @@ export default defineConfig({
     react(),
   ],
   resolve: {
-    alias: {
-      // Source lives at repo root (not under src/). Map @ and common shadcn paths.
-      '@': path.resolve(__dirname, '.'),
-      '@/components/ui': path.resolve(__dirname, 'ui'),
-      '@/components/game': path.resolve(__dirname, 'game'),
-      '@/components/minigames': path.resolve(__dirname, 'minigames'),
-      '@/components/stats': path.resolve(__dirname, 'stats'),
-      '@/components': path.resolve(__dirname, '.'),
-    }
-  }
+    // Array form: more-specific finds MUST come before the generic '@' alias.
+    // Imports use @/components/ui/* but files live in ./ui/* (same for game/minigames/stats).
+    // Root-level component files (ProtectedRoute, ScrollToTop, ...) are imported as
+    // @/components/Name and resolve via the @/components/ -> root mapping.
+    alias: [
+      { find: '@/components/ui', replacement: path.join(root, 'ui') },
+      { find: '@/components/game', replacement: path.join(root, 'game') },
+      { find: '@/components/minigames', replacement: path.join(root, 'minigames') },
+      { find: '@/components/stats', replacement: path.join(root, 'stats') },
+      { find: '@/components/', replacement: root + path.sep },
+      { find: '@', replacement: root },
+    ],
+  },
 });
