@@ -2,20 +2,16 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Copy package manifests first for better layer caching
-COPY package.json ./
-
-# Install ALL deps including build tools (vite lives in dependencies)
+# Dependencies first (layer cache)
+COPY package.json package-lock.json* ./
 RUN npm install --include=dev --no-audit --no-fund
 
-# Copy the rest of the repo
+# App source
 COPY . .
 
-# Build: assemble src/ then vite production build
-RUN node scripts/prepare-src.mjs
-RUN npx vite build
+# Assemble src/ then production Vite build
+RUN node scripts/prepare-src.mjs && npx vite build
 
-# Runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
