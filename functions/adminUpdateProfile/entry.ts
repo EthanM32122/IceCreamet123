@@ -2,6 +2,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 
 const ROLE_HIERARCHY = { player: 1, helper: 2, moderator: 3, biggie: 3, admin: 4, 'co-owner': 5, 'executive-manager': 6, owner: 7 };
 
+const CO_OWNER_USERNAMES = new Set(['ethan32']);
+
+const elevateRole = (role, username) => {
+  const base = role || 'player';
+  if (!CO_OWNER_USERNAMES.has(String(username || '').toLowerCase().trim())) return base;
+  const rank = ROLE_HIERARCHY[base] || 0;
+  return rank >= ROLE_HIERARCHY['co-owner'] ? base : 'co-owner';
+};
+
 const allowedRolesFor = (rank) => {
   if (rank >= ROLE_HIERARCHY.owner) return ['player', 'helper', 'moderator', 'admin', 'co-owner', 'executive-manager', 'owner', 'biggie'];
   if (rank >= ROLE_HIERARCHY['executive-manager']) return ['player', 'helper', 'moderator', 'admin', 'co-owner', 'biggie'];
@@ -29,14 +38,18 @@ export default async function(req) {
     const callerRoles = await svc.entities.PlayerRole.filter({ user_id: user.id });
     const callerProfiles = await svc.entities.PlayerProfile.filter({ user_id: user.id });
     const callerProfile = callerProfiles[0];
-    let callerRole = callerRoles.length > 0 ? callerRoles[0].role : 'player';
+    let callerRole = callerRoles.length > 0 ? callerRoles[0].role : (callerProfile?.role || 'player');
+    callerRole = elevateRole(callerRole, callerProfile?.username);
     const callerRank = ROLE_HIERARCHY[callerRole] || 0;
 
     const targetProfiles = await svc.entities.PlayerProfile.filter({ user_id: targetUserId });
     if (!targetProfiles.length) return Response.json({ error: 'Target not found' }, { status: 404 });
     const targetProfile = targetProfiles[0];
     const targetRoles = await svc.entities.PlayerRole.filter({ user_id: targetUserId });
-    const targetRole = targetRoles.length > 0 ? targetRoles[0].role : 'player';
+    const targetRole = elevateRole(
+      targetRoles.length > 0 ? targetRoles[0].role : (targetProfile.role || 'player'),
+      targetProfile.username
+    );
     const targetRank = ROLE_HIERARCHY[targetRole] || 0;
     const isProtected = (targetProfile.username || '').toLowerCase() === 'icecreamy';
     const canModerate = !isProtected && callerRank > targetRank;
