@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import useSeedSpawn from '@/components/game/useSeedSpawn';
+import useSeedSpawn from '@/components/game/useSeedSpawn.jsx';
 import { useGame } from '@/lib/gameContext';
 import { useToast } from '@/components/ui/use-toast';
 import {
