@@ -19,17 +19,33 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await base44.auth.loginViaEmailPassword(email, password);
+      const result = await base44.auth.loginViaEmailPassword(email.trim(), password);
+      // Persist token if SDK returns it but does not auto-store on external hosts
+      if (result?.access_token) {
+        try {
+          base44.auth.setToken(result.access_token, true);
+          localStorage.setItem("base44_access_token", result.access_token);
+          localStorage.setItem("token", result.access_token);
+        } catch (_) {}
+      }
+      // Full navigation so AuthContext re-reads the token from storage
       window.location.href = "/stats";
     } catch (err) {
-      setError(err.message || "Invalid email or password");
+      const msg =
+        err?.message ||
+        err?.data?.message ||
+        (err?.status === 401 ? "Invalid email or password" : null) ||
+        "Invalid email or password";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", "/stats");
+    // Return to this host after OAuth (works on Railway + Base44)
+    const returnTo = window.location.origin + "/stats";
+    base44.auth.loginWithProvider("google", returnTo);
   };
 
   return (
@@ -50,6 +66,7 @@ export default function Login() {
         variant="outline"
         className="w-full h-12 text-sm font-medium mb-6"
         onClick={handleGoogle}
+        type="button"
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
         Continue with Google
