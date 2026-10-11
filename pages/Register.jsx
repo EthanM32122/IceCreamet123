@@ -28,17 +28,21 @@ export default function Register() {
         setError('New account registration is currently disabled.');
         return;
       }
-    } catch (e) {}
+    } catch (_) {}
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
     setLoading(true);
     try {
-      await base44.auth.register({ email, password });
+      await base44.auth.register({ email: email.trim(), password });
       setShowOtp(true);
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError(err?.message || err?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -48,13 +52,17 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      const result = await base44.auth.verifyOtp({ email, otpCode });
+      const result = await base44.auth.verifyOtp({ email: email.trim(), otpCode });
       if (result?.access_token) {
-        base44.auth.setToken(result.access_token);
+        try {
+          base44.auth.setToken(result.access_token, true);
+          localStorage.setItem("base44_access_token", result.access_token);
+          localStorage.setItem("token", result.access_token);
+        } catch (_) {}
       }
       window.location.href = "/stats";
     } catch (err) {
-      setError(err.message || "Invalid verification code");
+      setError(err?.message || "Invalid verification code");
     } finally {
       setLoading(false);
     }
@@ -63,18 +71,19 @@ export default function Register() {
   const handleResend = async () => {
     setError("");
     try {
-      await base44.auth.resendOtp(email);
+      await base44.auth.resendOtp(email.trim());
       toast({
         title: "Code sent",
         description: "Check your email for the new code.",
       });
     } catch (err) {
-      setError(err.message || "Failed to resend code");
+      setError(err?.message || "Failed to resend code");
     }
   };
 
   const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", "/stats");
+    const returnTo = window.location.origin + "/stats";
+    base44.auth.loginWithProvider("google", returnTo);
   };
 
   if (showOtp) {
@@ -123,7 +132,7 @@ export default function Register() {
         </Button>
         <p className="text-center text-sm text-muted-foreground mt-4">
           Didn't receive the code?{" "}
-          <button onClick={handleResend} className="text-primary font-medium hover:underline">
+          <button type="button" onClick={handleResend} className="text-primary font-medium hover:underline">
             Resend
           </button>
         </p>
@@ -149,6 +158,7 @@ export default function Register() {
         variant="outline"
         className="w-full h-12 text-sm font-medium mb-6"
         onClick={handleGoogle}
+        type="button"
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
         Continue with Google
