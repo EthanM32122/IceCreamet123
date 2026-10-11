@@ -57,9 +57,15 @@ import DownloadSource from '@/pages/DownloadSource';
 
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
+    (p) => path === p || path.startsWith(p + '/')
+  );
 
-  if (isLoadingPublicSettings || isLoadingAuth) {
+  // Auth pages must always render so users can log in / register even when
+  // public-settings or token checks fail on an external host (Railway).
+  if ((isLoadingPublicSettings || isLoadingAuth) && !isAuthPage) {
     return (
       <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: '#a7fcc9' }}>
         <div className="text-center">
@@ -70,13 +76,8 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
-    }
+  if (authError?.type === 'user_not_registered' && !isAuthPage) {
+    return <UserNotRegisteredError />;
   }
 
   return (
@@ -89,7 +90,7 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Landing />} />
       <Route path="/alt-entry" element={<AltEntry />} />
       <Route path="/download-source" element={<DownloadSource />} />
-      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/" replace />} />}>
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<GameProvider><Outlet /></GameProvider>}>
         <Route element={<GameLayout />}>
           <Route path="/market" element={<Home />} />
