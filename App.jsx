@@ -11,13 +11,11 @@ import { GameProvider } from '@/lib/gameContext.jsx';
 import GameLayout from '@/components/game/GameLayout';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
 
-// Auth pages
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 
-// Game pages
 import Landing from '@/pages/Landing';
 import Home from '@/pages/Home';
 import Chat from '@/pages/Chat';
@@ -34,6 +32,9 @@ import PlayerProfile from '@/pages/PlayerProfile';
 import Clans from '@/pages/Clans';
 import AuctionHouse from '@/pages/AuctionHouse';
 import Minigames from '@/pages/Minigames';
+import Gambling from '@/pages/Gambling';
+import Blackjack from '@/pages/Blackjack';
+import BlackjackValues from '@/pages/BlackjackValues';
 import FlappyBirdPage from '@/pages/FlappyBirdPage';
 import GeometryDashPage from '@/pages/GeometryDashPage';
 import Discord from '@/pages/Discord';
@@ -55,15 +56,23 @@ import SpookyEvent from '@/pages/SpookyEvent';
 import SoupsOfHivelands from '@/pages/SoupsOfHivelands';
 import AltEntry from '@/pages/AltEntry';
 import DownloadSource from '@/pages/DownloadSource';
-
+import OAuthConsent from '@/pages/OAuthConsent';
 
 const AuthenticatedApp = () => {
-  const { authError } = useAuth();
+  const { isLoadingAuth, isAuthenticated, authError, isLoadingPublicSettings } = useAuth();
 
-  // IMPORTANT: never full-screen block on isLoadingAuth / public settings.
-  // On Railway, Base44 may reject the domain — visitors must still see Landing.
-  if (authError?.type === 'user_not_registered') {
-    return <UserNotRegisteredError />;
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[#0c1a14]">
+        <div className="w-8 h-8 border-2 border-[#a7fcc9]/30 border-t-[#a7fcc9] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (authError) {
+    if (authError.type === 'user_not_registered') {
+      return <UserNotRegisteredError />;
+    }
   }
 
   return (
@@ -72,11 +81,12 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/join/:code" element={<JoinApplication />} />
-      <Route path="/" element={<Landing />} />
-      <Route path="/alt-entry" element={<AltEntry />} />
+      <Route path="/join" element={<JoinApplication />} />
+      <Route path="/alt" element={<AltEntry />} />
       <Route path="/download-source" element={<DownloadSource />} />
-      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+      <Route path="/oauth-consent" element={<OAuthConsent />} />
+      <Route path="/" element={<Landing />} />
+      <Route element={<ProtectedRoute />}> 
         <Route element={<GameProvider><Outlet /></GameProvider>}>
         <Route element={<GameLayout />}>
           <Route path="/market" element={<Home />} />
@@ -95,6 +105,9 @@ const AuthenticatedApp = () => {
           <Route path="/clans" element={<Clans />} />
           <Route path="/auctions" element={<AuctionHouse />} />
           <Route path="/minigames" element={<Minigames />} />
+          <Route path="/gambling" element={<Gambling />} />
+          <Route path="/blackjack" element={<Blackjack />} />
+          <Route path="/blackjack/values" element={<BlackjackValues />} />
           <Route path="/flappybird" element={<FlappyBirdPage />} />
           <Route path="/geometrydash" element={<GeometryDashPage />} />
           <Route path="/discord" element={<Discord />} />
