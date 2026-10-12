@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Package, MessageSquare, BarChart3, Grid3X3, ShoppingBag, ArrowLeftRight, Shield, ShieldCheck, Settings, Users, Gavel, Gamepad2, Trophy, Crown, Youtube, Award, BookOpen, Newspaper, Hammer, Palette, Pickaxe, Sandwich, Link2, Link as LucideLink } from 'lucide-react';
+import { Package, MessageSquare, BarChart3, Grid3X3, ShoppingBag, ArrowLeftRight, Shield, ShieldCheck, Settings, Users, Gavel, Gamepad2, Trophy, Crown, Youtube, Award, BookOpen, Newspaper, Hammer, Palette, Pickaxe, Sandwich, Link2, Link as LucideLink, Dices } from 'lucide-react';
 
 const DiscordIcon = ({ size = 20, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { path: '/trade', icon: ArrowLeftRight, label: 'Trade' },
   { path: '/auctions', icon: Gavel, label: 'Auction House' },
   { path: '/minigames', icon: Gamepad2, label: 'Minigames' },
+  { path: '/gambling', icon: Dices, label: 'Gambling' },
   { path: '/mines', icon: Pickaxe, label: 'Mines' },
   { path: '/invites', icon: Link2, label: 'Invites' },
   { path: '/links', icon: LucideLink, label: 'Links' },
@@ -45,9 +46,6 @@ export default function Sidebar({ onOpenNews, onOpenRules }) {
   useEffect(() => { locationRef.current = location.pathname; if (location.pathname === '/chat') setUnreadPings(0); }, [location.pathname]);
   const usernameRef = useRef(profile?.username);
   usernameRef.current = profile?.username;
-  // Stable dep: depend on the username string, not the whole profile object, so
-  // token/heartbeat updates don't tear down and recreate this realtime
-  // subscription (a hot shared ChatMessage channel) and refetch on every tick.
   const username = profile?.username;
 
   useEffect(() => {
@@ -90,7 +88,7 @@ export default function Sidebar({ onOpenNews, onOpenRules }) {
   const gameName = isPhantomGrip ? 'BiggiCheezlet' : 'ICECREAMET';
 
   const navBtn = (item, colorClasses = '') => {
-    const active = location.pathname === item.path;
+    const active = location.pathname === item.path || (item.path === '/gambling' && location.pathname.startsWith('/blackjack'));
     return (
       <Link
         key={item.path}
