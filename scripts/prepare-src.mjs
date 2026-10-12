@@ -75,4 +75,17 @@ for (const file of rootComponents) {
   copy(file, path.join('src/components', file))
 }
 
+// Files already under components/ (e.g. AppErrorBoundary.jsx)
+const componentsDir = path.join(root, 'components')
+if (fs.existsSync(componentsDir)) {
+  for (const name of fs.readdirSync(componentsDir)) {
+    // Skip nested dirs already handled above (ui/game/...) if present here
+    const full = path.join(componentsDir, name)
+    const st = fs.statSync(full)
+    if (st.isFile()) {
+      copy(path.join('components', name), path.join('src/components', name))
+    }
+  }
+}
+
 console.log('[prepare-src] done')
