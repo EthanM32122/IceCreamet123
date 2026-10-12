@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Assembles Vite src/ tree. Restores Chat + safe Market (max 100 packs, no Max button).
+ * Assembles Vite src/ tree. Restores Chat, Home, AdminPanel.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -93,30 +93,23 @@ function applyLiveMessagePatches(source) {
       }).catch(() => {});
     } catch (e) {}
     return msg;`
-  if (t.includes(oldPost)) {
-    t = t.replace(oldPost, `    appendMessage(msg);
-` + oldPost)
-  }
+  if (t.includes(oldPost)) t = t.replace(oldPost, `    appendMessage(msg);\n` + oldPost)
   const oldBot = "await base44.entities.ChatMessage.create({ content, username: 'ICECREAMET Bot', avatar_url: botAvatar, is_system: true, user_role: 'admin', game: 'icecreamet' });"
   const newBot = "const botMsg = await base44.entities.ChatMessage.create({ content, username: 'ICECREAMET Bot', avatar_url: botAvatar, is_system: true, user_role: 'admin', game: 'icecreamet', channel: 'global' });\n    appendMessage(botMsg);"
   if (t.includes(oldBot)) t = t.replace(oldBot, newBot)
   return t
 }
 
-/** Safe market: max 100 packs, no Max button, charge tokens once only. */
 function applyMarketLagPatches(source) {
   let t = source
-
   if (!t.includes('MAX_PACKS_PER_OPEN')) {
     t = t.replace(
       '  const [bulkCount, setBulkCount] = useState(10);',
-      '  const [bulkCount, setBulkCount] = useState(10);\n  const MAX_PACKS_PER_OPEN = 100; // hard safe cap'
+      '  const [bulkCount, setBulkCount] = useState(10);\n  const MAX_PACKS_PER_OPEN = 100;'
     )
   } else {
-    t = t.replace(/const MAX_PACKS_PER_OPEN = \d+;[^\n]*/, 'const MAX_PACKS_PER_OPEN = 100; // hard safe cap')
+    t = t.replace(/const MAX_PACKS_PER_OPEN = \d+;[^\n]*/, 'const MAX_PACKS_PER_OPEN = 100;')
   }
-
-  // Multi-pack buys use bulk; never queue millions of single opens
   t = t.replace(
     /const startPurchase = \(pack, qty\) => \{\s*if \(!pack \|\| qty < 1\) return;\s*queueRef\.current = \{ pack, remaining: qty \};\s*setPurchaseQueue\(queueRef\.current\);\s*openPack\(pack\);\s*\};/,
     `const startPurchase = (pack, qty) => {
@@ -128,7 +121,6 @@ function applyMarketLagPatches(source) {
     openPack(pack);
   };`
   )
-
   t = t.replace(
     /const handlePackClick = \(pack\) => \{[\s\S]*?if \(instantRef\.current \|\| autoRef\.current\) \{ openPack\(pack\); \}\s*else \{ setConfirmPack\(pack\); \}\s*\};/,
     `const handlePackClick = (pack) => {
@@ -136,7 +128,6 @@ function applyMarketLagPatches(source) {
     else { setPurchasePack(pack); }
   };`
   )
-
   const oldOpenHead = `  const openBulk = async (pack, count) => {
     if (!bulkEnabled) return;
     const useDiamonds = diamondModeRef.current;
@@ -146,36 +137,28 @@ function applyMarketLagPatches(source) {
     const totalCost = unitCost * count;
     const balance = useDiamonds ? (profileRef.current.diamonds || 0) : (profileRef.current.tokens || 0);
     if (!profile || bulkBusy || balance < totalCost) return;`
-
   const newOpenHead = `  const openBulk = async (pack, count) => {
     const useDiamonds = diamondModeRef.current;
     const plusActive = !!profileRef.current.plus_permanent || (profileRef.current.plus_until && new Date(profileRef.current.plus_until) > new Date());
     const tokenUnitCost = Math.round(Number(pack.cost) * (plusActive ? 0.9 : 1));
     const unitCost = useDiamonds ? DIAMOND_PACK_COST : tokenUnitCost;
     const balance = useDiamonds ? (profileRef.current.diamonds || 0) : Math.floor(Number(profileRef.current.tokens) || 0);
-    // Never open more than 100; never charge for more than we open
     count = Math.min(Math.max(1, Math.floor(count || 1)), MAX_PACKS_PER_OPEN);
     const maxAffordable = unitCost > 0 ? Math.floor(balance / unitCost) : 0;
     count = Math.min(count, maxAffordable);
     if (count < 1) return;
     const totalCost = unitCost * count;
     if (!profile || bulkBusy || balance < totalCost) return;`
-
   if (t.includes(oldOpenHead)) t = t.replace(oldOpenHead, newOpenHead)
-
-  // Fix double charge: save balance - totalCost once (not after optimistic already deducted)
   const oldDeduct = `    if (useDiamonds) profilePatch.diamonds = Math.round(((profileRef.current.diamonds || 0) - totalCost) * 100) / 100;
     else profilePatch.tokens = profileRef.current.tokens - totalCost;`
   const newDeduct = `    if (useDiamonds) profilePatch.diamonds = Math.max(0, Math.round((balance - totalCost) * 100) / 100);
     else profilePatch.tokens = Math.max(0, balance - totalCost);`
   if (t.includes(oldDeduct)) t = t.replace(oldDeduct, newDeduct)
-
   const oldOpt = `    const optimisticProfile = { ...profileRef.current, [currencyField]: Math.round(((profileRef.current[currencyField] || 0) - totalCost) * 100) / 100 };`
   const newOpt = `    const newBal = useDiamonds ? Math.max(0, Math.round((balance - totalCost) * 100) / 100) : Math.max(0, balance - totalCost);
     const optimisticProfile = { ...profileRef.current, [currencyField]: newBal };`
   if (t.includes(oldOpt)) t = t.replace(oldOpt, newOpt)
-
-  // Bulk bar: x10 / x25 / x100 only — no Max
   const oldBulk = `            <Input type="number" value={bulkCount} onChange={e => setBulkCount(Math.max(1, Math.min(1000000, parseInt(e.target.value) || 1)))} className="w-20 bg-white/10 border-white/20 text-white text-center" />
             <Button size="sm" variant="outline" onClick={() => setBulkCount(10)} className="border-white/20 text-white">x10</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(25)} className="border-white/20 text-white">x25</Button>`
@@ -184,7 +167,68 @@ function applyMarketLagPatches(source) {
             <Button size="sm" variant="outline" onClick={() => setBulkCount(25)} className="border-white/20 text-white">x25</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(100)} className="border-white/20 text-white">x100</Button>`
   if (t.includes(oldBulk)) t = t.replace(oldBulk, newBulk)
+  return t
+}
 
+/** Unban: moderators+ can always unban; show button; clear errors. */
+function applyAdminUnbanPatches(source) {
+  let t = source
+  const oldToggle = `  const toggleBan = async (player) => {
+    const canUnbanProtected = isProtected(player) && player.is_banned && ROLE_HIERARCHY[adminProfile.role] >= ROLE_HIERARCHY.admin;
+    if (!canModerate(adminProfile, player) && !canUnbanProtected) return;
+    if (player.is_banned) {
+      try { await adminUpdateProfile(adminProfile, player, { is_banned: false, ban_reason: '', banned_by: '' }); } catch (e) { alert('Failed: ' + (e.message || 'admin service unavailable')); }
+      loadPlayers();
+      return;
+    }
+    if (isProtected(player)) return;
+    setBanDialogPlayer(player);
+    setBanReason('');
+    setBanProof('');
+  };`
+  const newToggle = `  const toggleBan = async (player) => {
+    const rank = ROLE_HIERARCHY[adminProfile.role] || 0;
+    if (player.is_banned) {
+      if (rank < ROLE_HIERARCHY.moderator) {
+        alert('Only moderators+ can unban.');
+        return;
+      }
+      try {
+        await adminUpdateProfile(adminProfile, player, { is_banned: false, ban_reason: '', banned_by: '' });
+        setPlayers(prev => prev.map(p =>
+          p.id === player.id || p.user_id === player.user_id
+            ? { ...p, is_banned: false, ban_reason: '', banned_by: '' }
+            : p
+        ));
+        alert('Unbanned ' + (player.username || 'user'));
+      } catch (e) {
+        alert('Unban failed: ' + (e.message || 'permission or network error'));
+      }
+      loadPlayers();
+      return;
+    }
+    if (!canModerate(adminProfile, player)) {
+      alert('You cannot ban this user (rank too high or protected).');
+      return;
+    }
+    if (isProtected(player)) return;
+    setBanDialogPlayer(player);
+    setBanReason('');
+    setBanProof('');
+  };`
+  if (t.includes(oldToggle)) t = t.replace(oldToggle, newToggle)
+
+  const oldBtn = `              {(canModerate(adminProfile, player) || (isProtected(player) && player.is_banned && isOwner)) && (
+                <Button size="sm" variant="outline" onClick={() => toggleBan(player)} className="text-xs border-white/20 text-red-400">
+                  {player.is_banned ? 'Unban' : 'Ban'}
+                </Button>
+              )}`
+  const newBtn = `              {((player.is_banned && (ROLE_HIERARCHY[adminProfile.role] || 0) >= ROLE_HIERARCHY.moderator) || canModerate(adminProfile, player)) && (
+                <Button size="sm" variant="outline" onClick={() => toggleBan(player)} className="text-xs border-white/20 text-red-400">
+                  {player.is_banned ? 'Unban' : 'Ban'}
+                </Button>
+              )}`
+  if (t.includes(oldBtn)) t = t.replace(oldBtn, newBtn)
   return t
 }
 
@@ -192,28 +236,45 @@ async function restoreOriginalChat() {
   const url =
     'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/2e551976635775dc1ca294dc1d0a8af3d9e0e389/pages/Chat.jsx'
   try {
-    console.log('[prepare-src] downloading original Chat.jsx ...')
+    console.log('[prepare-src] downloading Chat.jsx ...')
     let source = await download(url)
     source = applyLiveMessagePatches(source)
     fs.writeFileSync(path.join(root, 'pages', 'Chat.jsx'), source, 'utf8')
     console.log('[prepare-src] restored pages/Chat.jsx')
   } catch (e) {
-    console.warn('[prepare-src] could not restore Chat:', e.message)
+    console.warn('[prepare-src] Chat restore failed:', e.message)
   }
 }
 
 async function restoreHomeMarket() {
-  const homePath = path.join(root, 'pages', 'Home.jsx')
   const url =
     'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/d5642dc5d241c9a142a20a6f08ff53dc81484e50/pages/Home.jsx'
   try {
-    console.log('[prepare-src] downloading Home.jsx (safe bulk max 100) ...')
+    console.log('[prepare-src] downloading Home.jsx ...')
     let source = await download(url)
     source = applyMarketLagPatches(source)
-    fs.writeFileSync(homePath, source, 'utf8')
+    fs.writeFileSync(path.join(root, 'pages', 'Home.jsx'), source, 'utf8')
     console.log('[prepare-src] restored pages/Home.jsx')
   } catch (e) {
-    console.warn('[prepare-src] could not restore Home:', e.message)
+    console.warn('[prepare-src] Home restore failed:', e.message)
+  }
+}
+
+async function restoreAdminPanel() {
+  // Known-good full AdminPanel (before accidental overwrite)
+  const url =
+    'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/35e68f3cf03208dad26d35f528897fdb136016af/pages/AdminPanel.jsx'
+  try {
+    console.log('[prepare-src] downloading AdminPanel.jsx ...')
+    let source = await download(url)
+    if (!source || source.length < 1000 || source.includes('TOO_LARGE')) {
+      throw new Error('bad AdminPanel download')
+    }
+    source = applyAdminUnbanPatches(source)
+    fs.writeFileSync(path.join(root, 'pages', 'AdminPanel.jsx'), source, 'utf8')
+    console.log('[prepare-src] restored pages/AdminPanel.jsx (unban fixed)')
+  } catch (e) {
+    console.warn('[prepare-src] AdminPanel restore failed:', e.message)
   }
 }
 
@@ -223,6 +284,7 @@ ensureDir(path.join(src, 'components'))
 
 await restoreOriginalChat()
 await restoreHomeMarket()
+await restoreAdminPanel()
 
 copy('main.jsx', 'src/main.jsx')
 copy('App.jsx', 'src/App.jsx')
