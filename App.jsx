@@ -56,15 +56,14 @@ import SpookyEvent from '@/pages/SpookyEvent';
 import SoupsOfHivelands from '@/pages/SoupsOfHivelands';
 import AltEntry from '@/pages/AltEntry';
 import DownloadSource from '@/pages/DownloadSource';
-import OAuthConsent from '@/pages/OAuthConsent';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isAuthenticated, authError, isLoadingPublicSettings } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#0c1a14]">
-        <div className="w-8 h-8 border-2 border-[#a7fcc9]/30 border-t-[#a7fcc9] rounded-full animate-spin" />
+      <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: '#0c4a30' }}>
+        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -81,12 +80,11 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/join" element={<JoinApplication />} />
-      <Route path="/alt" element={<AltEntry />} />
-      <Route path="/download-source" element={<DownloadSource />} />
-      <Route path="/oauth-consent" element={<OAuthConsent />} />
+      <Route path="/join/:code" element={<JoinApplication />} />
       <Route path="/" element={<Landing />} />
-      <Route element={<ProtectedRoute />}> 
+      <Route path="/alt-entry" element={<AltEntry />} />
+      <Route path="/download-source" element={<DownloadSource />} />
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<GameProvider><Outlet /></GameProvider>}>
         <Route element={<GameLayout />}>
           <Route path="/market" element={<Home />} />
