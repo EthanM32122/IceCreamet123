@@ -1,34 +1,42 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
-import { toast } from "@/components/ui/use-toast";
 
 export default function Register() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showOtp, setShowOtp] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
+
+  const persistToken = (result) => {
+    if (result?.access_token) {
+      try {
+        base44.auth.setToken(result.access_token, true);
+        localStorage.setItem("base44_access_token", result.access_token);
+        localStorage.setItem("token", result.access_token);
+      } catch (_) {}
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
-      const settings = await base44.entities.GameSettings.filter({ key: 'registration_disabled' });
-      if (settings.length > 0 && settings[0].value === 'true') {
-        setError('New account registration is currently disabled.');
+      const settings = await base44.entities.GameSettings.filter({ key: "registration_disabled" });
+      if (settings.length > 0 && settings[0].value === "true") {
+        setError("New account registration is currently disabled.");
         return;
       }
     } catch (_) {}
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -37,47 +45,62 @@ export default function Register() {
       setError("Password must be at least 6 characters");
       return;
     }
-    setLoading(true);
-    try {
-      await base44.auth.register({ email: email.trim(), password });
-      setShowOtp(true);
-    } catch (err) {
-      setError(err?.message || err?.data?.message || "Registration failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleVerify = async () => {
-    setError("");
     setLoading(true);
+    const trimmed = email.trim();
     try {
-      const result = await base44.auth.verifyOtp({ email: email.trim(), otpCode });
-      if (result?.access_token) {
-        try {
-          base44.auth.setToken(result.access_token, true);
-          localStorage.setItem("base44_access_token", result.access_token);
-          localStorage.setItem("token", result.access_token);
-        } catch (_) {}
+      // Create account — no email verification code step
+      const reg = await base44.auth.register({ email: trimmed, password });
+      persistToken(reg);
+
+      // If register already logged us in, go play
+      if (reg?.access_token) {
+        window.location.href = "/stats";
+        return;
       }
-      window.location.href = "/stats";
+
+      // Otherwise log in with the same email + password
+      try {
+        const login = await base44.auth.loginViaEmailPassword(trimmed, password);
+        persistToken(login);
+        window.location.href = "/stats";
+        return;
+      } catch (_) {
+        // Account created; send them to login with the email filled
+        navigate("/login", {
+          replace: true,
+          state: {
+            registered: true,
+            email: trimmed,
+            message: "Account created! Log in with your email and password.",
+          },
+        });
+        return;
+      }
     } catch (err) {
-      setError(err?.message || "Invalid verification code");
+      const msg = String(err?.message || err?.data?.message || "");
+      // Some Base44 apps still force OTP at API level — fall back to login page
+      if (/otp|verif|code|confirm/i.test(msg)) {
+        try {
+          const login = await base44.auth.loginViaEmailPassword(trimmed, password);
+          persistToken(login);
+          window.location.href = "/stats";
+          return;
+        } catch (_) {
+          navigate("/login", {
+            replace: true,
+            state: {
+              registered: true,
+              email: trimmed,
+              message: "Account saved. Log in with your email and password.",
+            },
+          });
+          return;
+        }
+      }
+      setError(msg || "Registration failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError("");
-    try {
-      await base44.auth.resendOtp(email.trim());
-      toast({
-        title: "Code sent",
-        description: "Check your email for the new code.",
-      });
-    } catch (err) {
-      setError(err?.message || "Failed to resend code");
     }
   };
 
@@ -86,65 +109,11 @@ export default function Register() {
     base44.auth.loginWithProvider("google", returnTo);
   };
 
-  if (showOtp) {
-    return (
-      <AuthLayout
-        icon={Mail}
-        title="Verify your email"
-        subtitle={`We sent a code to ${email}`}
-      >
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
-          </div>
-        )}
-        <div className="flex justify-center mb-6">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-            autoFocus
-            autoComplete="one-time-code"
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleVerify}
-          disabled={loading || otpCode.length < 6}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify"
-          )}
-        </Button>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Didn't receive the code?{" "}
-          <button type="button" onClick={handleResend} className="text-primary font-medium hover:underline">
-            Resend
-          </button>
-        </p>
-      </AuthLayout>
-    );
-  }
-
   return (
     <AuthLayout
       icon={UserPlus}
       title="Create your account"
-      subtitle="Sign up to get started"
+      subtitle="Sign up with email and password — no code needed"
       footer={
         <>
           Already have an account?{" "}
