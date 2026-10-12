@@ -11,17 +11,23 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
   if (!pack) return null;
 
   const unitCost = diamondMode ? 15 : Math.round(pack.cost * (plusActive ? 0.9 : 1));
-  const total = unitCost * (qty || 1);
   const balance = diamondMode ? (diamondBalance || 0) : (tokenBalance || 0);
-  const canAfford = balance >= total;
+  // Max packs you can buy with current balance (no artificial limit)
+  const maxAffordable = unitCost > 0 ? Math.max(0, Math.floor(balance / unitCost)) : 0;
+  const safeQty = Math.max(1, Math.floor(Number(qty) || 1));
+  const total = unitCost * safeQty;
+  const canAfford = balance >= total && safeQty >= 1 && maxAffordable >= 1;
   const fontStyle = pack.font_family ? { fontFamily: pack.font_family } : undefined;
+
+  const setMax = () => {
+    setQty(Math.max(1, maxAffordable));
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg p-0 overflow-hidden bg-panel border-white/10">
         <DialogTitle className="sr-only">{pack.name}</DialogTitle>
         <div className="flex flex-col sm:flex-row">
-          {/* Left: pack image on its background */}
           <div
             className="sm:w-1/2 aspect-square flex items-center justify-center relative"
             style={{
@@ -36,7 +42,6 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
               <Package size={80} className="text-white/80" />
             )}
           </div>
-          {/* Right: info + controls */}
           <div className="sm:w-1/2 p-5 flex flex-col gap-3">
             <h2 className="text-2xl font-display text-white leading-tight" style={fontStyle}>{pack.name}</h2>
             <button
@@ -54,22 +59,44 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 : (plusActive && <span className="text-[10px] text-[#a7fcc9]">10% Plus off</span>)}
             </div>
             <div>
-              <label className="text-xs text-white/70 block mb-1">Purchase Quantity:</label>
-              <Input
-                type="number"
-                min={1}
-                value={qty}
-                onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-24 bg-white/10 border-white/20 text-white"
-              />
+              <label className="text-xs text-white/70 block mb-1">Purchase quantity (any amount)</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, maxAffordable)}
+                  value={qty}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (Number.isNaN(n)) { setQty(''); return; }
+                    setQty(Math.max(1, n));
+                  }}
+                  className="flex-1 bg-white/10 border-white/20 text-white"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={setMax}
+                  disabled={maxAffordable < 1}
+                  className="border-[#a7fcc9]/50 text-[#a7fcc9] hover:bg-[#a7fcc9]/10 font-display shrink-0"
+                >
+                  Max
+                </Button>
+              </div>
+              <p className="text-[10px] text-white/40 mt-1">
+                Max you can buy: <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
+                {' · '}Balance: {(balance || 0).toLocaleString()}
+              </p>
             </div>
             <Button
-              onClick={() => onBuy(qty || 1)}
+              onClick={() => onBuy(Math.min(safeQty, Math.max(1, maxAffordable)))}
               disabled={!canAfford}
               className="w-full"
               style={{ backgroundColor: '#a7fcc9', color: 'rgb(var(--user-sidebar))' }}
             >
-              Buy {qty || 1} for {diamondMode ? <DiamondIcon size={16} /> : <TokenIcon size={16} />} {total.toLocaleString()}
+              Buy {Math.min(safeQty, Math.max(1, maxAffordable)).toLocaleString()} for{' '}
+              {diamondMode ? <DiamondIcon size={16} /> : <TokenIcon size={16} />}{' '}
+              {(unitCost * Math.min(safeQty, Math.max(1, maxAffordable))).toLocaleString()}
             </Button>
             {!canAfford && <p className="text-[10px] text-red-400 text-center">Not enough {diamondMode ? 'diamonds' : 'tokens'}</p>}
           </div>
