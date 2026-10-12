@@ -5,24 +5,23 @@ import { Input } from '@/components/ui/input';
 import { Package } from 'lucide-react';
 import { DiamondIcon, TokenIcon } from '@/components/game/CurrencyIcon';
 
-// High enough for multi-million opens; actual limit is what you can afford.
-const MAX_PACKS_PER_OPEN = 100000000;
+const HARD_CAP = 100000000;
 
 export default function PackPurchaseModal({ pack, open, onClose, onShowRates, onBuy, tokenBalance, diamondBalance, diamondMode, plusActive }) {
   const [qty, setQty] = useState(1);
   useEffect(() => { if (open) setQty(1); }, [open, pack?.id]);
   if (!pack) return null;
 
-  const unitCost = diamondMode ? 15 : Math.round(pack.cost * (plusActive ? 0.9 : 1));
-  const balance = diamondMode ? (diamondBalance || 0) : (tokenBalance || 0);
-  const maxAffordable = unitCost > 0
-    ? Math.min(MAX_PACKS_PER_OPEN, Math.max(0, Math.floor(balance / unitCost)))
-    : 0;
-  const safeQty = Math.max(1, Math.min(MAX_PACKS_PER_OPEN, Math.floor(Number(qty) || 1)));
-  const total = unitCost * Math.min(safeQty, Math.max(1, maxAffordable));
-  const canAfford = balance >= unitCost && maxAffordable >= 1 && safeQty >= 1;
+  // Must match openBulk cost math exactly so Max never overcharges
+  const unitCost = diamondMode ? 15 : Math.round(Number(pack.cost) * (plusActive ? 0.9 : 1));
+  const balance = Math.floor(Number(diamondMode ? (diamondBalance || 0) : (tokenBalance || 0)));
+  const maxAffordable = unitCost > 0 ? Math.min(HARD_CAP, Math.max(0, Math.floor(balance / unitCost))) : 0;
+
+  const safeQty = Math.max(1, Math.min(HARD_CAP, Math.floor(Number(qty) || 1)));
+  const buyQty = Math.min(safeQty, maxAffordable);
+  const totalCost = unitCost * buyQty;
+  const canAfford = maxAffordable >= 1 && buyQty >= 1 && balance >= totalCost;
   const fontStyle = pack.font_family ? { fontFamily: pack.font_family } : undefined;
-  const buyQty = Math.min(safeQty, Math.max(1, maxAffordable));
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -54,14 +53,15 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
             </button>
             <div className="flex items-center gap-2">
               <span className={`flex items-center text-lg ${diamondMode ? 'text-cyan-400' : 'text-yellow-400'}`}>{diamondMode ? <DiamondIcon size={18} /> : <TokenIcon size={18} />}</span>
-              <span className="text-white font-display">{diamondMode ? 15 : pack.cost}</span>
+              <span className="text-white font-display">{unitCost.toLocaleString()}</span>
+              <span className="text-[10px] text-white/50">each</span>
               {diamondMode
                 ? <span className="text-[10px] text-cyan-400">2x luck</span>
                 : (plusActive && <span className="text-[10px] text-[#a7fcc9]">10% Plus off</span>)}
             </div>
             <div>
-              <label className="text-xs text-white/70 block mb-1">Quantity (supports millions)</label>
-              <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-xs text-white/70 block mb-1">Quantity</label>
+              <div className="flex items-center gap-2">
                 <Input
                   type="number"
                   min={1}
@@ -70,11 +70,10 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                   onChange={(e) => {
                     const n = parseInt(e.target.value, 10);
                     if (Number.isNaN(n)) { setQty(''); return; }
-                    setQty(Math.max(1, Math.min(MAX_PACKS_PER_OPEN, n)));
+                    setQty(Math.max(1, Math.min(maxAffordable || 1, n)));
                   }}
-                  className="flex-1 min-w-[8rem] bg-white/10 border-white/20 text-white"
+                  className="flex-1 bg-white/10 border-white/20 text-white"
                 />
-                <Button type="button" variant="outline" onClick={() => setQty(11000000)} className="border-white/20 text-white text-xs">11M</Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -86,19 +85,22 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 </Button>
               </div>
               <p className="text-[10px] text-white/40 mt-1">
-                Can afford: <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
-                {' · '}Balance: {(balance || 0).toLocaleString()}
+                Max affordable: <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
+                {' · '}Balance: {balance.toLocaleString()}
               </p>
             </div>
             <Button
-              onClick={() => onBuy(buyQty)}
-              disabled={!canAfford || buyQty < 1}
+              onClick={() => {
+                if (!canAfford) return;
+                onBuy(buyQty);
+              }}
+              disabled={!canAfford}
               className="w-full"
               style={{ backgroundColor: '#a7fcc9', color: 'rgb(var(--user-sidebar))' }}
             >
               Buy {buyQty.toLocaleString()} for{' '}
               {diamondMode ? <DiamondIcon size={16} /> : <TokenIcon size={16} />}{' '}
-              {(unitCost * buyQty).toLocaleString()}
+              {totalCost.toLocaleString()}
             </Button>
             {!canAfford && <p className="text-[10px] text-red-400 text-center">Not enough {diamondMode ? 'diamonds' : 'tokens'}</p>}
           </div>
