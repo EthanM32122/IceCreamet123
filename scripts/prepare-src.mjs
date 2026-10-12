@@ -2,7 +2,7 @@
 /**
  * Assembles a standard Base44/Vite `src/` tree from this repo's root layout.
  * Also restores the full original Chat UI (from a known-good commit) and
- * applies only the live-message patches (appendMessage + 3s poll).
+ * applies only the live-message patches (appendMessage + safe 3s poll).
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -61,7 +61,8 @@ function applyLiveMessagePatches(source) {
     if (!msg || !msg.id || msg.is_deleted) return;
     if (msg.game && msg.game !== 'icecreamet') return;
     if (msg.channel && msg.channel !== 'global') return;
-    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg].slice(-80));
+    const stamped = msg.created_date ? msg : { ...msg, created_date: new Date().toISOString() };
+    setMessages(prev => prev.some(m => m.id === stamped.id) ? prev : [...prev, stamped].slice(-100));
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
@@ -81,19 +82,15 @@ function applyLiveMessagePatches(source) {
   }, []);`
   const newRet = `    const poll = setInterval(async () => {
       try {
-        const msgs = await base44.entities.ChatMessage.filter({ is_deleted: false, game: 'icecreamet' }, '-created_date', 30);
+        const msgs = await base44.entities.ChatMessage.filter({ is_deleted: false, game: 'icecreamet' }, '-created_date', 40);
         if (!Array.isArray(msgs) || !msgs.length) return;
-        const incoming = msgs.filter(m => !m.channel || m.channel === 'global').reverse();
+        const incoming = msgs.filter(m => !m.channel || m.channel === 'global');
         setMessages(prev => {
-          const byId = new Map(prev.map(m => [m.id, m]));
-          let changed = false;
-          for (const m of incoming) {
-            if (!byId.has(m.id)) { byId.set(m.id, m); changed = true; }
-          }
-          if (!changed) return prev;
-          return Array.from(byId.values())
-            .sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0))
-            .slice(-80);
+          // ONLY add — never re-sort/drop existing messages (idle was wiping chat)
+          const existing = new Set(prev.map(m => m.id));
+          const toAdd = incoming.filter(m => m.id && !existing.has(m.id));
+          if (!toAdd.length) return prev;
+          return [...prev, ...[...toAdd].reverse()].slice(-100);
         });
       } catch (e) {}
     }, 3000);
@@ -124,7 +121,6 @@ function applyLiveMessagePatches(source) {
 }
 
 async function restoreOriginalChat() {
-  // Known-good full Chat UI before the simplified ChatView rewrite
   const url =
     'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/2e551976635775dc1ca294dc1d0a8af3d9e0e389/pages/Chat.jsx'
   try {
@@ -140,33 +136,27 @@ async function restoreOriginalChat() {
   }
 }
 
-// --- main ---
 rmrf(src)
 ensureDir(src)
 ensureDir(path.join(src, 'components'))
 
-// Restore full original chat (network) before copying pages/
 await restoreOriginalChat()
 
-// Entry + styles
 copy('main.jsx', 'src/main.jsx')
 copy('App.jsx', 'src/App.jsx')
 copy('index.css', 'src/index.css')
 
-// Core folders
 copy('api', 'src/api')
 copy('lib', 'src/lib')
 copy('pages', 'src/pages')
 copy('hooks', 'src/hooks')
 copy('utils', 'src/utils')
 
-// Components: ui + game modules under components/
 copy('ui', 'src/components/ui')
 copy('game', 'src/components/game')
 copy('minigames', 'src/components/minigames')
 copy('stats', 'src/components/stats')
 
-// Root-level component files imported as @/components/Name
 const rootComponents = [
   'AuthLayout.jsx',
   'BlookJumpers.jsx',
@@ -180,13 +170,11 @@ for (const file of rootComponents) {
   copy(file, path.join('src/components', file))
 }
 
-// Files already under components/ (e.g. AppErrorBoundary.jsx)
 const componentsDir = path.join(root, 'components')
 if (fs.existsSync(componentsDir)) {
   for (const name of fs.readdirSync(componentsDir)) {
     const full = path.join(componentsDir, name)
-    const st = fs.statSync(full)
-    if (st.isFile()) {
+    if (fs.statSync(full).isFile()) {
       copy(path.join('components', name), path.join('src/components', name))
     }
   }
