@@ -1,1 +1,1 @@
-export { default } from './ChatView';
+RESTORED_FULL_CHAT
