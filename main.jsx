@@ -7,17 +7,47 @@ import AppErrorBoundary from '@/components/AppErrorBoundary'
 
 initDevToolsBlock();
 
-// If Base44 (or anything else) throws before React paints, replace body with a
-// friendly screen instead of a black page full of JSON.
+function isDomainErr(val) {
+  try {
+    const s = typeof val === 'string' ? val : JSON.stringify(val ?? '');
+    return /domain is not valid/i.test(s);
+  } catch {
+    return false;
+  }
+}
+
+// Never let Base44 domain errors blank the whole page as raw JSON.
 window.addEventListener('unhandledrejection', (event) => {
-  const msg = String(event?.reason?.message || event?.reason || '');
-  if (/domain is not valid/i.test(msg)) {
+  if (isDomainErr(event?.reason) || isDomainErr(event?.reason?.message) || isDomainErr(event?.reason?.data)) {
     event.preventDefault();
-    console.warn('[ICECREAMET] ignored Base44 domain error:', msg);
+    console.warn('[ICECREAMET] ignored Base44 domain error');
   }
 });
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+window.addEventListener('error', (event) => {
+  if (isDomainErr(event?.message) || isDomainErr(event?.error)) {
+    event.preventDefault();
+    console.warn('[ICECREAMET] ignored Base44 domain error (error event)');
+  }
+});
+
+// If the document body was replaced with raw JSON (some API failures),
+// recover to the React app once.
+try {
+  const text = (document.body?.innerText || '').trim();
+  if (text.startsWith('{') && /domain is not valid/i.test(text)) {
+    document.body.innerHTML = '<div id="root"></div>';
+  }
+} catch {}
+
+const rootEl = document.getElementById('root') || (() => {
+  const d = document.createElement('div');
+  d.id = 'root';
+  document.body.appendChild(d);
+  return d;
+})();
+
+ReactDOM.createRoot(rootEl).render(
   <AppErrorBoundary>
     <App />
   </AppErrorBoundary>
