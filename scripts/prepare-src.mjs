@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build-time: restore Chat/Home/AdminPanel/Bazaar and apply patches.
+ * Build-time: restore Chat/Home/AdminPanel/Bazaar and patch TradeRoom.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -198,7 +198,6 @@ function applyAdminUnbanPatches(t) {
   return t
 }
 
-/** Full bazaar UI (images + War Shop) + economy action helpers */
 function applyBazaarPatches(t) {
   if (!t.includes("economyActions")) {
     t = t.replace(
@@ -206,8 +205,6 @@ function applyBazaarPatches(t) {
       "import { BAZAAR_RESTRICTED_BLOOK_IDS } from '@/lib/hivelands';\nimport { bazaarList, bazaarBuy, bazaarCancel } from '@/lib/economyActions';"
     )
   }
-
-  // Safer buy via economy helper
   t = t.replace(
     /const buyListing = async \(listing\) => \{[\s\S]*?loadData\(\);\s*\};/,
     `const buyListing = async (listing) => {
@@ -226,21 +223,13 @@ function applyBazaarPatches(t) {
     loadData();
   };`
   )
-
   t = t.replace(
     /const cancelListing = async \(listing\) => \{[\s\S]*?loadData\(\);\s*\};/,
     `const cancelListing = async (listing) => {
-    try {
-      await bazaarCancel(listing.id);
-    } catch (e) {
-      alert(e?.message || 'Cancel failed');
-      return;
-    }
+    try { await bazaarCancel(listing.id); } catch (e) { alert(e?.message || 'Cancel failed'); return; }
     loadData();
   };`
   )
-
-  // confirmList — prefer bazaarList when available
   t = t.replace(
     /const confirmList = async \(\) => \{[\s\S]*?setListDialog\(null\);[\s\S]*?loadData\(\);\s*\};/,
     `const confirmList = async () => {
@@ -248,18 +237,34 @@ function applyBazaarPatches(t) {
     if (BAZAAR_RESTRICTED_BLOOK_IDS.has(listDialog.blook_id)) return;
     const price = parseInt(listPrice) || 0;
     if (price <= 0) return;
-    try {
-      await bazaarList({ blook_id: listDialog.blook_id, price, isShiny: !!listDialog.isShiny });
-    } catch (e) {
-      alert(e?.message || 'Failed to list item');
-      return;
-    }
-    setListDialog(null);
-    setListPrice('');
-    loadData();
+    try { await bazaarList({ blook_id: listDialog.blook_id, price, isShiny: !!listDialog.isShiny }); }
+    catch (e) { alert(e?.message || 'Failed to list item'); return; }
+    setListDialog(null); setListPrice(''); loadData();
   };`
   )
+  return t
+}
 
+/** Live trade room: client settle when backend executeTrade is blocked */
+function applyTradeRoomPatches(t) {
+  if (!t.includes('clientSettleLiveTrade')) {
+    t = t.replace(
+      "import { getActiveBlooks } from '@/lib/gameDataCache';",
+      "import { getActiveBlooks } from '@/lib/gameDataCache';\nimport { clientSettleLiveTrade } from '@/lib/tradeClient';"
+    )
+  }
+  if (t.includes("await base44.functions.invoke('executeTrade'")) {
+    t = t.replace(
+      "await base44.functions.invoke('executeTrade', { room_id: r.id });",
+      `try {
+        const inv = base44.functions.invoke('executeTrade', { room_id: r.id });
+        inv.catch(() => {});
+        await Promise.race([inv, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]);
+      } catch (_) {
+        await clientSettleLiveTrade(fresh, profile, updateProfile);
+      }`
+    )
+  }
   return t
 }
 
@@ -282,8 +287,18 @@ ensureDir(path.join(src, 'components'))
 await restore('Chat.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/2e551976635775dc1ca294dc1d0a8af3d9e0e389/pages/Chat.jsx', applyLiveMessagePatches)
 await restore('Home.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/d5642dc5d241c9a142a20a6f08ff53dc81484e50/pages/Home.jsx', applyMarketPatches)
 await restore('AdminPanel.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/35e68f3cf03208dad26d35f528897fdb136016af/pages/AdminPanel.jsx', applyAdminUnbanPatches)
-// Full bazaar with blook images + War Shop (bombs / shields)
 await restore('Bazaar.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/afe935d2/pages/Bazaar.jsx', applyBazaarPatches)
+
+// Patch TradeRoom in-repo for client trade settle
+{
+  const p = path.join(root, 'pages', 'TradeRoom.jsx')
+  if (fs.existsSync(p)) {
+    let t = fs.readFileSync(p, 'utf8')
+    t = applyTradeRoomPatches(t)
+    fs.writeFileSync(p, t, 'utf8')
+    console.log('[prepare-src] patched pages/TradeRoom.jsx')
+  }
+}
 
 copy('main.jsx', 'src/main.jsx')
 copy('App.jsx', 'src/App.jsx')
