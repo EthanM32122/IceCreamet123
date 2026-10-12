@@ -3,13 +3,16 @@ import { appParams } from '@/lib/app-params';
 
 const { appId, token, functionsVersion, appBaseUrl } = appParams;
 
-// On Base44-hosted previews the Vite plugin proxies /api → the app.
-// On Railway (or any external host) there is no proxy, so an empty
-// serverUrl makes every auth/entity call hit the static host and fail.
-// Default to the public Base44 API; override with VITE_BASE44_SERVER_URL if needed.
+// On Railway the Node server proxies /api -> https://base44.app so the browser
+// never talks to Base44 with a Railway Origin (which returns "Domain is not valid").
+// Empty serverUrl = same origin. Override with VITE_BASE44_SERVER_URL only if needed.
+const envServer =
+  typeof import.meta !== 'undefined' ? import.meta.env?.VITE_BASE44_SERVER_URL : undefined;
+
 const serverUrl =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BASE44_SERVER_URL) ||
-  'https://base44.app';
+  envServer !== undefined && envServer !== null && String(envServer).length > 0
+    ? String(envServer)
+    : ''; // same-origin /api proxy
 
 export const base44 = createClient({
   appId,
