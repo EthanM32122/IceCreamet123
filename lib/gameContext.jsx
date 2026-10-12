@@ -51,7 +51,8 @@ export function GameProvider({ children }) {
   const i90CheckedRef = useRef(false);
   const { toast } = useToast();
 
-  const TOKEN_CAP = 75000000;
+  // Hard max: 5 trillion tokens — nothing can go above this
+  const TOKEN_CAP = 5_000_000_000_000;
   const DIAMOND_CAP = 25000000;
   const enforceCap = (p) => {
     if (!p) return p;
@@ -137,7 +138,7 @@ export function GameProvider({ children }) {
       if (caught.length > 0) {
         const bonus = caught.reduce((sum, c) => sum + (c.reward || 0), 0);
         try {
-          const updated = await base44.entities.PlayerProfile.update(resolved.id, { tokens: (resolved.tokens || 0) + bonus });
+          const updated = await base44.entities.PlayerProfile.update(resolved.id, { tokens: Math.min(TOKEN_CAP, (resolved.tokens || 0) + bonus) });
           const capped = await enforceCap(updated);
           profileRef.current = capped;
           setProfile(capped);
@@ -167,7 +168,7 @@ export function GameProvider({ children }) {
     const current = profileRef.current;
     if (!current) return;
     const { role: _stripped, ...safeData } = data;
-    if (typeof safeData.tokens === 'number') safeData.tokens = Math.floor(Math.max(0, safeData.tokens));
+    if (typeof safeData.tokens === 'number') safeData.tokens = Math.floor(Math.min(TOKEN_CAP, Math.max(0, safeData.tokens)));
     if ((current.username || '').toLowerCase() === 'icecreamy' && safeData.is_banned === true) {
       return current;
     }
@@ -186,7 +187,7 @@ export function GameProvider({ children }) {
   const addTokens = async (amount) => {
     const current = profileRef.current;
     if (!current) return;
-    const nextTokens = Math.floor(Math.max(0, (current.tokens || 0) + amount));
+    const nextTokens = Math.floor(Math.min(TOKEN_CAP, Math.max(0, (current.tokens || 0) + amount)));
     const optimistic = { ...current, tokens: nextTokens };
     profileRef.current = optimistic;
     setProfile(optimistic);
@@ -255,7 +256,7 @@ export function GameProvider({ children }) {
         const totalPerMin = minesPerMin + gholdengoPerMin;
         const totalIncome = totalPerMin * 2;
         const updateData = { last_seen: Date.now() };
-        if (totalIncome > 0) updateData.tokens = (cur.tokens || 0) + totalIncome;
+        if (totalIncome > 0) updateData.tokens = Math.min(TOKEN_CAP, (cur.tokens || 0) + totalIncome);
         const updated = await base44.entities.PlayerProfile.update(cur.id, updateData);
         const capped = await enforceCap(updated);
         const preserved = { ...capped, role: cur.role };
