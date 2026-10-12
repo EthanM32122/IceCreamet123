@@ -1,0 +1,62 @@
+{
+  "name": "BanOverride",
+  "type": "object",
+  "properties": {
+    "target_user_id": {
+      "type": "string"
+    },
+    "target_username": {
+      "type": "string"
+    },
+    "staff_user_id": {
+      "type": "string"
+    },
+    "staff_username": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_user_id",
+    "staff_user_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "data.staff_user_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "data.staff_user_id": "{{user.id}}"
+        },
+        {
+          "data.target_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.staff_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
