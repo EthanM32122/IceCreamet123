@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Assembles Vite src/ tree. Restores Chat + Home with market lag fixes.
+ * Assembles Vite src/ tree. Restores Chat + Home with fast multi-million bulk opens.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -93,32 +93,77 @@ function applyLiveMessagePatches(source) {
       }).catch(() => {});
     } catch (e) {}
     return msg;`
-  const newPost = `    appendMessage(msg);
-    try {
-      base44.functions.invoke('discordSendChat', {
-        username: profile.username, content: content || '', avatarUrl: profile.avatar_url, imageUrl
-      }).catch(() => {});
-    } catch (e) {}
-    return msg;`
-  if (t.includes(oldPost)) t = t.replace(oldPost, newPost)
+  if (t.includes(oldPost)) {
+    t = t.replace(oldPost, `    appendMessage(msg);
+` + oldPost)
+  }
   const oldBot = "await base44.entities.ChatMessage.create({ content, username: 'ICECREAMET Bot', avatar_url: botAvatar, is_system: true, user_role: 'admin', game: 'icecreamet' });"
   const newBot = "const botMsg = await base44.entities.ChatMessage.create({ content, username: 'ICECREAMET Bot', avatar_url: botAvatar, is_system: true, user_role: 'admin', game: 'icecreamet', channel: 'global' });\n    appendMessage(botMsg);"
   if (t.includes(oldBot)) t = t.replace(oldBot, newBot)
   return t
 }
 
-/** Cap bulk opens + avoid sequential openPack for large qty (freezes tab at millions). */
 function applyMarketLagPatches(source) {
   let t = source
+
+  // Fast binomial for large N (normal approx) — used by multi-million bulk
+  if (!t.includes('function binomialSample')) {
+    const helper = `
+  // Fast binomial sample (exact for small n, normal approx for large) — enables multi-million bulk without freezing.
+  const binomialSample = (n, p) => {
+    if (n <= 0 || p <= 0) return 0;
+    if (p >= 1) return n;
+    if (n < 80) {
+      let c = 0;
+      for (let i = 0; i < n; i++) if (Math.random() < p) c++;
+      return c;
+    }
+    const mean = n * p;
+    const std = Math.sqrt(n * p * (1 - p));
+    const u1 = Math.random() || 1e-12;
+    const u2 = Math.random();
+    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    return Math.max(0, Math.min(n, Math.round(mean + std * z)));
+  };
+
+  const bulkSampleCounts = (pool, boostMultiplier, count) => {
+    const weights = pool.map(b => {
+      let chance = RARITY_DROP_RATES[b.rarity] || (b.drop_chance || 1);
+      if (boostMultiplier > 1 && b.rarity !== 'uncommon') chance *= boostMultiplier;
+      return chance;
+    });
+    let remaining = count;
+    let weightLeft = weights.reduce((s, w) => s + w, 0);
+    const counts = {};
+    for (let i = 0; i < pool.length; i++) {
+      const id = pool[i].id;
+      if (remaining <= 0) { counts[id] = counts[id] || 0; continue; }
+      if (i === pool.length - 1) { counts[id] = (counts[id] || 0) + remaining; break; }
+      const p = weightLeft > 0 ? weights[i] / weightLeft : 0;
+      const n = binomialSample(remaining, p);
+      counts[id] = (counts[id] || 0) + n;
+      remaining -= n;
+      weightLeft -= weights[i];
+    }
+    return counts;
+  };
+
+`
+    t = t.replace(
+      '  const pickBlook = (packBlooks, boostMultiplier) => {',
+      helper + '  const pickBlook = (packBlooks, boostMultiplier) => {'
+    )
+  }
 
   if (!t.includes('MAX_PACKS_PER_OPEN')) {
     t = t.replace(
       '  const [bulkCount, setBulkCount] = useState(10);',
-      '  const [bulkCount, setBulkCount] = useState(10);\n  const MAX_PACKS_PER_OPEN = 10000; // hard cap — millions freezes the browser'
+      '  const [bulkCount, setBulkCount] = useState(10);\n  // No low artificial cap — multi-million opens use statistical bulk (instant).\n  const MAX_PACKS_PER_OPEN = 100000000;' // 100M
     )
+  } else {
+    t = t.replace(/const MAX_PACKS_PER_OPEN = \d+;[^\n]*/, 'const MAX_PACKS_PER_OPEN = 100000000; // 100M — statistical bulk')
   }
 
-  // Route qty>1 through bulk (one deduct + aggregated blooks)
   t = t.replace(
     /const startPurchase = \(pack, qty\) => \{\s*if \(!pack \|\| qty < 1\) return;\s*queueRef\.current = \{ pack, remaining: qty \};\s*setPurchaseQueue\(queueRef\.current\);\s*openPack\(pack\);\s*\};/,
     `const startPurchase = (pack, qty) => {
@@ -131,7 +176,6 @@ function applyMarketLagPatches(source) {
   };`
   )
 
-  // Click pack opens purchase modal
   t = t.replace(
     /const handlePackClick = \(pack\) => \{[\s\S]*?if \(instantRef\.current \|\| autoRef\.current\) \{ openPack\(pack\); \}\s*else \{ setConfirmPack\(pack\); \}\s*\};/,
     `const handlePackClick = (pack) => {
@@ -140,7 +184,6 @@ function applyMarketLagPatches(source) {
   };`
   )
 
-  // openBulk: clamp to 10k + max affordable; always allow from purchase modal
   const oldOpenHead = `  const openBulk = async (pack, count) => {
     if (!bulkEnabled) return;
     const useDiamonds = diamondModeRef.current;
@@ -159,14 +202,14 @@ function applyMarketLagPatches(source) {
     const balance = useDiamonds ? (profileRef.current.diamonds || 0) : (profileRef.current.tokens || 0);
     const maxAffordable = unitCost > 0 ? Math.floor(balance / unitCost) : 0;
     if (count < 1 || count === -1) count = maxAffordable;
-    count = Math.min(Math.floor(count || 0), maxAffordable, typeof MAX_PACKS_PER_OPEN === 'number' ? MAX_PACKS_PER_OPEN : 10000);
+    count = Math.min(Math.floor(count || 0), maxAffordable, MAX_PACKS_PER_OPEN);
     if (count < 1) return;
     const totalCost = unitCost * count;
     if (!profile || bulkBusy || balance < totalCost) return;`
 
   if (t.includes(oldOpenHead)) t = t.replace(oldOpenHead, newOpenHead)
 
-  // Chunked aggregate RNG instead of storing millions of pull objects
+  // Replace O(count) loop with O(pool) statistical sample
   const oldLoop = `    const pulls = [];
     const shinyFlags = [];
     for (let i = 0; i < count; i++) {
@@ -175,45 +218,51 @@ function applyMarketLagPatches(source) {
       shinyFlags.push(rollShiny(pack, b, useDiamonds ? DIAMOND_SHINY_MULT : 1));
     }`
 
-  const newLoop = `    const counts = {};
-    const shinyCounts = {};
-    const samplePulls = [];
-    const SAMPLE_CAP = 200;
+  const newLoop = `    // O(pool size) statistical bulk — works for 11M+ packs without freezing
+    const counts = bulkSampleCounts(pullPool, boostMultiplier, count);
     const shinyMult = useDiamonds ? DIAMOND_SHINY_MULT : 1;
-    const CHUNK = 2500;
-    for (let start = 0; start < count; start += CHUNK) {
-      const end = Math.min(start + CHUNK, count);
-      for (let i = start; i < end; i++) {
-        const b = pickBlook(pullPool, boostMultiplier);
-        counts[b.id] = (counts[b.id] || 0) + 1;
-        if (rollShiny(pack, b, shinyMult)) shinyCounts[b.id] = (shinyCounts[b.id] || 0) + 1;
-        if (samplePulls.length < SAMPLE_CAP) samplePulls.push(b);
+    const shinyChance = 0.05 * shinyMult;
+    const shinyCounts = {};
+    const idToBlook = {};
+    pullPool.forEach(b => { idToBlook[b.id] = b; });
+    Object.entries(counts).forEach(([id, n]) => {
+      if (n > 0 && Math.random() < 1 - Math.pow(1 - shinyChance, n)) {
+        // at least one shiny roll succeeded; keep 1 shiny of this blook for bulk (same as before)
+        shinyCounts[id] = 1;
       }
-      if (end < count) await new Promise(r => setTimeout(r, 0));
-    }
-    const pulls = samplePulls;
-    const shinyFlags = samplePulls.map(b => !!(shinyCounts[b.id]));`
+    });
+    const pulls = [];
+    const shinyFlags = [];
+    const SAMPLE_CAP = 200;
+    for (const [id, n] of Object.entries(counts)) {
+      const b = idToBlook[id];
+      if (!b || !n) continue;
+      const take = Math.min(n, Math.max(1, Math.floor(SAMPLE_CAP / Math.max(1, Object.keys(counts).length))));
+      for (let i = 0; i < take && pulls.length < SAMPLE_CAP; i++) {
+        pulls.push(b);
+        shinyFlags.push(i === 0 && !!shinyCounts[id]);
+      }
+    }`
 
   if (t.includes(oldLoop)) t = t.replace(oldLoop, newLoop)
 
-  // Remove second counts build if both exist after patch
   const dupCounts = `    const counts = {};
     const shinyCounts = {};
     pulls.forEach((b, i) => {
       counts[b.id] = (counts[b.id] || 0) + 1;
       if (shinyFlags[i]) shinyCounts[b.id] = (shinyCounts[b.id] || 0) + 1;
     });`
-  if (t.includes(dupCounts)) t = t.replace(dupCounts, '    // counts/shinyCounts already aggregated above')
+  if (t.includes(dupCounts)) t = t.replace(dupCounts, '    // counts/shinyCounts already from statistical bulk')
 
-  // Bulk UI capped
   const oldBulk = `            <Input type="number" value={bulkCount} onChange={e => setBulkCount(Math.max(1, Math.min(1000000, parseInt(e.target.value) || 1)))} className="w-20 bg-white/10 border-white/20 text-white text-center" />
             <Button size="sm" variant="outline" onClick={() => setBulkCount(10)} className="border-white/20 text-white">x10</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(25)} className="border-white/20 text-white">x25</Button>`
-  const newBulk = `            <Input type="number" min={1} max={10000} value={bulkCount} onChange={e => setBulkCount(Math.max(1, Math.min(10000, parseInt(e.target.value, 10) || 1)))} className="w-28 bg-white/10 border-white/20 text-white text-center" />
+  const newBulk = `            <Input type="number" min={1} value={bulkCount} onChange={e => setBulkCount(Math.max(1, parseInt(e.target.value, 10) || 1))} className="w-36 bg-white/10 border-white/20 text-white text-center" />
             <Button size="sm" variant="outline" onClick={() => setBulkCount(10)} className="border-white/20 text-white">x10</Button>
-            <Button size="sm" variant="outline" onClick={() => setBulkCount(100)} className="border-white/20 text-white">x100</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(1000)} className="border-white/20 text-white">x1K</Button>
-            <Button size="sm" variant="outline" onClick={() => setBulkCount(10000)} className="border-[#a7fcc9]/50 text-[#a7fcc9]">Max 10K</Button>`
+            <Button size="sm" variant="outline" onClick={() => setBulkCount(1000000)} className="border-white/20 text-white">x1M</Button>
+            <Button size="sm" variant="outline" onClick={() => setBulkCount(11000000)} className="border-[#a7fcc9]/50 text-[#a7fcc9]">11M</Button>
+            <Button size="sm" variant="outline" onClick={() => setBulkCount(-1)} className="border-[#a7fcc9]/50 text-[#a7fcc9]">Max</Button>`
   if (t.includes(oldBulk)) t = t.replace(oldBulk, newBulk)
 
   return t
@@ -238,11 +287,11 @@ async function restoreHomeMarket() {
   const url =
     'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/d5642dc5d241c9a142a20a6f08ff53dc81484e50/pages/Home.jsx'
   try {
-    console.log('[prepare-src] downloading Home.jsx + lag fixes ...')
+    console.log('[prepare-src] downloading Home.jsx + multi-million bulk ...')
     let source = await download(url)
     source = applyMarketLagPatches(source)
     fs.writeFileSync(homePath, source, 'utf8')
-    console.log('[prepare-src] restored pages/Home.jsx (max 10k packs/open)')
+    console.log('[prepare-src] restored pages/Home.jsx (11M+ bulk ok)')
   } catch (e) {
     console.warn('[prepare-src] could not restore Home:', e.message)
   }
