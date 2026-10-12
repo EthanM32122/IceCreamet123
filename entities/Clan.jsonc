@@ -63,18 +63,7 @@
         }
       ]
     },
-    "update": {
-      "$or": [
-        {
-          "data.leader_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"
