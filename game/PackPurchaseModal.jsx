@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Package } from 'lucide-react';
 import { DiamondIcon, TokenIcon } from '@/components/game/CurrencyIcon';
 
-const MAX_PACKS_PER_OPEN = 10000;
+// High enough for multi-million opens; actual limit is what you can afford.
+const MAX_PACKS_PER_OPEN = 100000000;
 
 export default function PackPurchaseModal({ pack, open, onClose, onShowRates, onBuy, tokenBalance, diamondBalance, diamondMode, plusActive }) {
   const [qty, setQty] = useState(1);
@@ -18,9 +19,10 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
     ? Math.min(MAX_PACKS_PER_OPEN, Math.max(0, Math.floor(balance / unitCost)))
     : 0;
   const safeQty = Math.max(1, Math.min(MAX_PACKS_PER_OPEN, Math.floor(Number(qty) || 1)));
-  const total = unitCost * safeQty;
-  const canAfford = balance >= total && safeQty >= 1 && maxAffordable >= 1;
+  const total = unitCost * Math.min(safeQty, Math.max(1, maxAffordable));
+  const canAfford = balance >= unitCost && maxAffordable >= 1 && safeQty >= 1;
   const fontStyle = pack.font_family ? { fontFamily: pack.font_family } : undefined;
+  const buyQty = Math.min(safeQty, Math.max(1, maxAffordable));
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -58,8 +60,8 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 : (plusActive && <span className="text-[10px] text-[#a7fcc9]">10% Plus off</span>)}
             </div>
             <div>
-              <label className="text-xs text-white/70 block mb-1">Quantity (max {MAX_PACKS_PER_OPEN.toLocaleString()} per open)</label>
-              <div className="flex items-center gap-2">
+              <label className="text-xs text-white/70 block mb-1">Quantity (supports millions)</label>
+              <div className="flex items-center gap-2 flex-wrap">
                 <Input
                   type="number"
                   min={1}
@@ -70,8 +72,9 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                     if (Number.isNaN(n)) { setQty(''); return; }
                     setQty(Math.max(1, Math.min(MAX_PACKS_PER_OPEN, n)));
                   }}
-                  className="flex-1 bg-white/10 border-white/20 text-white"
+                  className="flex-1 min-w-[8rem] bg-white/10 border-white/20 text-white"
                 />
+                <Button type="button" variant="outline" onClick={() => setQty(11000000)} className="border-white/20 text-white text-xs">11M</Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -83,19 +86,19 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 </Button>
               </div>
               <p className="text-[10px] text-white/40 mt-1">
-                This open: up to <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
+                Can afford: <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
                 {' · '}Balance: {(balance || 0).toLocaleString()}
               </p>
             </div>
             <Button
-              onClick={() => onBuy(Math.min(safeQty, Math.max(1, maxAffordable)))}
-              disabled={!canAfford}
+              onClick={() => onBuy(buyQty)}
+              disabled={!canAfford || buyQty < 1}
               className="w-full"
               style={{ backgroundColor: '#a7fcc9', color: 'rgb(var(--user-sidebar))' }}
             >
-              Buy {Math.min(safeQty, Math.max(1, maxAffordable)).toLocaleString()} for{' '}
+              Buy {buyQty.toLocaleString()} for{' '}
               {diamondMode ? <DiamondIcon size={16} /> : <TokenIcon size={16} />}{' '}
-              {(unitCost * Math.min(safeQty, Math.max(1, maxAffordable))).toLocaleString()}
+              {(unitCost * buyQty).toLocaleString()}
             </Button>
             {!canAfford && <p className="text-[10px] text-red-400 text-center">Not enough {diamondMode ? 'diamonds' : 'tokens'}</p>}
           </div>
