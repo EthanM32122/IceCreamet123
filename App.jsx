@@ -9,6 +9,7 @@ import ScrollToTop from '@/components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { GameProvider } from '@/lib/gameContext.jsx';
 import GameLayout from '@/components/game/GameLayout';
+import AppErrorBoundary from '@/components/AppErrorBoundary';
 
 // Auth pages
 import Login from '@/pages/Login';
@@ -57,26 +58,11 @@ import DownloadSource from '@/pages/DownloadSource';
 
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
-  const path = typeof window !== 'undefined' ? window.location.pathname : '';
-  const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
-    (p) => path === p || path.startsWith(p + '/')
-  );
+  const { authError } = useAuth();
 
-  // Auth pages must always render so users can log in / register even when
-  // public-settings or token checks fail on an external host (Railway).
-  if ((isLoadingPublicSettings || isLoadingAuth) && !isAuthPage) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: '#a7fcc9' }}>
-        <div className="text-center">
-          <img src="https://media.base44.com/images/public/6a618722aa7aa154e6bca6b1/2724130c5_file_00000000f0cc81f689edd7e643506d5b-removebg-preview.png" alt="ICECREAMET" className="h-20 w-auto object-contain mx-auto mb-4" />
-          <div className="w-8 h-8 border-4 border-panel/30 border-t-panel rounded-full animate-spin mx-auto" />
-        </div>
-      </div>
-    );
-  }
-
-  if (authError?.type === 'user_not_registered' && !isAuthPage) {
+  // IMPORTANT: never full-screen block on isLoadingAuth / public settings.
+  // On Railway, Base44 may reject the domain — visitors must still see Landing.
+  if (authError?.type === 'user_not_registered') {
     return <UserNotRegisteredError />;
   }
 
@@ -136,15 +122,17 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <ScrollToTop />
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   )
 }
 
