@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Package } from 'lucide-react';
 import { DiamondIcon, TokenIcon } from '@/components/game/CurrencyIcon';
 
+const MAX_PACKS_PER_OPEN = 10000;
+
 export default function PackPurchaseModal({ pack, open, onClose, onShowRates, onBuy, tokenBalance, diamondBalance, diamondMode, plusActive }) {
   const [qty, setQty] = useState(1);
   useEffect(() => { if (open) setQty(1); }, [open, pack?.id]);
@@ -12,16 +14,13 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
 
   const unitCost = diamondMode ? 15 : Math.round(pack.cost * (plusActive ? 0.9 : 1));
   const balance = diamondMode ? (diamondBalance || 0) : (tokenBalance || 0);
-  // Max packs you can buy with current balance (no artificial limit)
-  const maxAffordable = unitCost > 0 ? Math.max(0, Math.floor(balance / unitCost)) : 0;
-  const safeQty = Math.max(1, Math.floor(Number(qty) || 1));
+  const maxAffordable = unitCost > 0
+    ? Math.min(MAX_PACKS_PER_OPEN, Math.max(0, Math.floor(balance / unitCost)))
+    : 0;
+  const safeQty = Math.max(1, Math.min(MAX_PACKS_PER_OPEN, Math.floor(Number(qty) || 1)));
   const total = unitCost * safeQty;
   const canAfford = balance >= total && safeQty >= 1 && maxAffordable >= 1;
   const fontStyle = pack.font_family ? { fontFamily: pack.font_family } : undefined;
-
-  const setMax = () => {
-    setQty(Math.max(1, maxAffordable));
-  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -59,7 +58,7 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 : (plusActive && <span className="text-[10px] text-[#a7fcc9]">10% Plus off</span>)}
             </div>
             <div>
-              <label className="text-xs text-white/70 block mb-1">Purchase quantity (any amount)</label>
+              <label className="text-xs text-white/70 block mb-1">Quantity (max {MAX_PACKS_PER_OPEN.toLocaleString()} per open)</label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -69,14 +68,14 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                   onChange={(e) => {
                     const n = parseInt(e.target.value, 10);
                     if (Number.isNaN(n)) { setQty(''); return; }
-                    setQty(Math.max(1, n));
+                    setQty(Math.max(1, Math.min(MAX_PACKS_PER_OPEN, n)));
                   }}
                   className="flex-1 bg-white/10 border-white/20 text-white"
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={setMax}
+                  onClick={() => setQty(Math.max(1, maxAffordable))}
                   disabled={maxAffordable < 1}
                   className="border-[#a7fcc9]/50 text-[#a7fcc9] hover:bg-[#a7fcc9]/10 font-display shrink-0"
                 >
@@ -84,7 +83,7 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 </Button>
               </div>
               <p className="text-[10px] text-white/40 mt-1">
-                Max you can buy: <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
+                This open: up to <span className="text-white/70">{maxAffordable.toLocaleString()}</span>
                 {' · '}Balance: {(balance || 0).toLocaleString()}
               </p>
             </div>
