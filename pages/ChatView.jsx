@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ROLE_COLORS, ROLE_BADGES, ROLE_HIERARCHY, VERIFIED_BADGE_ID } from '@/lib/constants';
 import { containsSlur, containsIpAttempt } from '@/lib/slurFilter';
 import { getColorStyle } from '@/lib/colorStyle';
-import { Send, Image, Trash2, Hash, ChevronDown, Smile, Reply, X } from 'lucide-react';
+import { Send, Image, Trash2, Hash, Smile, Reply, X } from 'lucide-react';
 import Links from '@/pages/Links';
 import { handleBotCommand, getActiveGames, clearUnscramble, clearGtb, clearGtb2, clearGtp } from '@/lib/chatBot';
 import { clearRiddle, normalizeAnswer } from '@/lib/riddles';
@@ -31,8 +31,6 @@ export default function ChatView() {
   const [sending, setSending] = useState(false);
   const [players, setPlayers] = useState([]);
   const [clanByUser, setClanByUser] = useState({});
-  const [showMentions, setShowMentions] = useState(false);
-  const [mentionFilter, setMentionFilter] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [typers, setTypers] = useState([]);
@@ -52,7 +50,8 @@ export default function ChatView() {
     if (!msg || !msg.id || msg.is_deleted) return;
     if (msg.game && msg.game !== 'icecreamet') return;
     if (msg.channel && msg.channel !== 'global') return;
-    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg].slice(-80));
+    const stamped = msg.created_date ? msg : { ...msg, created_date: new Date().toISOString() };
+    setMessages(prev => prev.some(m => m.id === stamped.id) ? prev : [...prev, stamped].slice(-100));
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
@@ -78,7 +77,12 @@ export default function ChatView() {
           if (!data.is_deleted) appendMessage(data);
         } else if (event.type === 'update') {
           const id = event.data?.id || event.id; if (!id) return;
-          setMessages(prev => prev.map(m => m.id === id ? { ...m, ...event.data } : m));
+          // If marked deleted, remove; otherwise merge fields — never wipe the list
+          if (event.data?.is_deleted) {
+            setMessages(prev => prev.filter(m => m.id !== id));
+          } else {
+            setMessages(prev => prev.map(m => m.id === id ? { ...m, ...event.data } : m));
+          }
         } else if (event.type === 'delete') {
           const id = event.data?.id || event.id; if (!id) return;
           setMessages(prev => prev.filter(m => m.id !== id));
@@ -87,15 +91,15 @@ export default function ChatView() {
     });
     const poll = setInterval(async () => {
       try {
-        const msgs = await base44.entities.ChatMessage.filter({ is_deleted: false, game: 'icecreamet' }, '-created_date', 30);
+        const msgs = await base44.entities.ChatMessage.filter({ is_deleted: false, game: 'icecreamet' }, '-created_date', 40);
         if (!Array.isArray(msgs) || !msgs.length) return;
-        const incoming = msgs.filter(m => !m.channel || m.channel === 'global').reverse();
+        const incoming = msgs.filter(m => !m.channel || m.channel === 'global');
         setMessages(prev => {
-          const byId = new Map(prev.map(m => [m.id, m]));
-          let changed = false;
-          for (const m of incoming) { if (!byId.has(m.id)) { byId.set(m.id, m); changed = true; } }
-          if (!changed) return prev;
-          return Array.from(byId.values()).sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0)).slice(-80);
+          // ONLY add new ids — never re-sort/drop messages when idle
+          const existing = new Set(prev.map(m => m.id));
+          const toAdd = incoming.filter(m => m.id && !existing.has(m.id));
+          if (!toAdd.length) return prev;
+          return [...prev, ...[...toAdd].reverse()].slice(-100);
         });
       } catch (e) {}
     }, 3000);
