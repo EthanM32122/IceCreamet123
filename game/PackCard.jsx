@@ -4,6 +4,7 @@ import { DiamondIcon, TokenIcon } from '@/components/game/CurrencyIcon';
 
 export default function PackCard({ pack, onClick, onShowRates, onBulk, bulkCount, diamondMode }) {
   const fontStyle = pack.font_family ? { fontFamily: pack.font_family } : undefined;
+  const bulkLabel = bulkCount === -1 ? 'Max' : `x${bulkCount || 10}`;
   return (
     <div
       onClick={onClick}
@@ -45,7 +46,7 @@ export default function PackCard({ pack, onClick, onShowRates, onBulk, bulkCount
           onClick={(e) => { e.stopPropagation(); onBulk(pack); }}
           className="w-full text-[10px] py-1 bg-black/30 text-[#a7fcc9] hover:bg-black/50 transition-colors"
         >
-          {diamondMode ? <DiamondIcon size={12} /> : 'Open'} x{bulkCount || 10}
+          {diamondMode ? <><DiamondIcon size={12} /> {bulkLabel}</> : <>Open {bulkLabel}</>}
         </button>
       )}
     </div>
