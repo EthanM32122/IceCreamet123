@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { RARITY_COLORS } from '@/lib/constants';
 import { Plus, ArrowRight, Check } from 'lucide-react';
+import { clientAcceptTradeRequest } from '@/lib/tradeClient';
 
 export default function TradeHub() {
   const { profile, updateProfile } = useGame();
@@ -75,9 +76,17 @@ export default function TradeHub() {
   const acceptOffer = async (trade) => {
     setAccepting(trade.id);
     try {
-      const res = await base44.functions.invoke('acceptTradeOffer', { trade_id: trade.id });
-      if (res?.data?.profile) {
-        await updateProfile(res.data.profile);
+      try {
+        const inv = base44.functions.invoke('acceptTradeOffer', { trade_id: trade.id });
+        inv.catch(() => {});
+        const res = await Promise.race([
+          inv,
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3500)),
+        ]);
+        if (res?.data?.profile) await updateProfile(res.data.profile);
+      } catch (_) {
+        const data = await clientAcceptTradeRequest(trade, profile, updateProfile);
+        if (data?.profile) await updateProfile(data.profile);
       }
       loadData();
     } catch (e) {
@@ -107,7 +116,7 @@ export default function TradeHub() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-white/60">Browse public trade offers or post your own — no friends required!</p>
+        <p className="text-sm text-white/60">Browse public trade offers or post your own — works on Railway and Base44!</p>
         <Button size="sm" onClick={() => setShowPostDialog(true)} style={{ backgroundColor: '#a7fcc9', color: 'rgb(var(--user-sidebar))' }}>
           <Plus size={14} className="mr-1" /> Post Offer
         </Button>
