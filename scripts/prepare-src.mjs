@@ -106,10 +106,8 @@ function applyLiveMessagePatches(source) {
 function applyMarketLagPatches(source) {
   let t = source
 
-  // Fast binomial for large N (normal approx) — used by multi-million bulk
   if (!t.includes('function binomialSample')) {
     const helper = `
-  // Fast binomial sample (exact for small n, normal approx for large) — enables multi-million bulk without freezing.
   const binomialSample = (n, p) => {
     if (n <= 0 || p <= 0) return 0;
     if (p >= 1) return n;
@@ -158,10 +156,10 @@ function applyMarketLagPatches(source) {
   if (!t.includes('MAX_PACKS_PER_OPEN')) {
     t = t.replace(
       '  const [bulkCount, setBulkCount] = useState(10);',
-      '  const [bulkCount, setBulkCount] = useState(10);\n  // No low artificial cap — multi-million opens use statistical bulk (instant).\n  const MAX_PACKS_PER_OPEN = 100000000;' // 100M
+      '  const [bulkCount, setBulkCount] = useState(10);\n  const MAX_PACKS_PER_OPEN = 100000000;'
     )
   } else {
-    t = t.replace(/const MAX_PACKS_PER_OPEN = \d+;[^\n]*/, 'const MAX_PACKS_PER_OPEN = 100000000; // 100M — statistical bulk')
+    t = t.replace(/const MAX_PACKS_PER_OPEN = \d+;[^\n]*/, 'const MAX_PACKS_PER_OPEN = 100000000;')
   }
 
   t = t.replace(
@@ -197,9 +195,9 @@ function applyMarketLagPatches(source) {
   const newOpenHead = `  const openBulk = async (pack, count) => {
     const useDiamonds = diamondModeRef.current;
     const plusActive = !!profileRef.current.plus_permanent || (profileRef.current.plus_until && new Date(profileRef.current.plus_until) > new Date());
-    const tokenUnitCost = Math.round(pack.cost * (plusActive ? 0.9 : 1));
+    const tokenUnitCost = Math.round(Number(pack.cost) * (plusActive ? 0.9 : 1));
     const unitCost = useDiamonds ? DIAMOND_PACK_COST : tokenUnitCost;
-    const balance = useDiamonds ? (profileRef.current.diamonds || 0) : (profileRef.current.tokens || 0);
+    const balance = useDiamonds ? (profileRef.current.diamonds || 0) : Math.floor(profileRef.current.tokens || 0);
     const maxAffordable = unitCost > 0 ? Math.floor(balance / unitCost) : 0;
     if (count < 1 || count === -1) count = maxAffordable;
     count = Math.min(Math.floor(count || 0), maxAffordable, MAX_PACKS_PER_OPEN);
@@ -209,7 +207,6 @@ function applyMarketLagPatches(source) {
 
   if (t.includes(oldOpenHead)) t = t.replace(oldOpenHead, newOpenHead)
 
-  // Replace O(count) loop with O(pool) statistical sample
   const oldLoop = `    const pulls = [];
     const shinyFlags = [];
     for (let i = 0; i < count; i++) {
@@ -218,16 +215,14 @@ function applyMarketLagPatches(source) {
       shinyFlags.push(rollShiny(pack, b, useDiamonds ? DIAMOND_SHINY_MULT : 1));
     }`
 
-  const newLoop = `    // O(pool size) statistical bulk — works for 11M+ packs without freezing
-    const counts = bulkSampleCounts(pullPool, boostMultiplier, count);
+  const newLoop = `    const counts = bulkSampleCounts(pullPool, boostMultiplier, count);
     const shinyMult = useDiamonds ? DIAMOND_SHINY_MULT : 1;
     const shinyChance = 0.05 * shinyMult;
     const shinyCounts = {};
     const idToBlook = {};
     pullPool.forEach(b => { idToBlook[b.id] = b; });
     Object.entries(counts).forEach(([id, n]) => {
-      if (n > 0 && Math.random() < 1 - Math.pow(1 - shinyChance, n)) {
-        // at least one shiny roll succeeded; keep 1 shiny of this blook for bulk (same as before)
+      if (n > 0 && Math.random() < 1 - Math.pow(1 - shinyChance, Math.min(n, 1e9))) {
         shinyCounts[id] = 1;
       }
     });
@@ -252,18 +247,28 @@ function applyMarketLagPatches(source) {
       counts[b.id] = (counts[b.id] || 0) + 1;
       if (shinyFlags[i]) shinyCounts[b.id] = (shinyCounts[b.id] || 0) + 1;
     });`
-  if (t.includes(dupCounts)) t = t.replace(dupCounts, '    // counts/shinyCounts already from statistical bulk')
+  if (t.includes(dupCounts)) t = t.replace(dupCounts, '    // counts already from statistical bulk')
 
   const oldBulk = `            <Input type="number" value={bulkCount} onChange={e => setBulkCount(Math.max(1, Math.min(1000000, parseInt(e.target.value) || 1)))} className="w-20 bg-white/10 border-white/20 text-white text-center" />
             <Button size="sm" variant="outline" onClick={() => setBulkCount(10)} className="border-white/20 text-white">x10</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(25)} className="border-white/20 text-white">x25</Button>`
-  const newBulk = `            <Input type="number" min={1} value={bulkCount} onChange={e => setBulkCount(Math.max(1, parseInt(e.target.value, 10) || 1))} className="w-36 bg-white/10 border-white/20 text-white text-center" />
+  const newBulk = `            <Input type="number" min={1} value={bulkCount === -1 ? '' : bulkCount} placeholder="qty" onChange={e => setBulkCount(Math.max(1, parseInt(e.target.value, 10) || 1))} className="w-36 bg-white/10 border-white/20 text-white text-center" />
             <Button size="sm" variant="outline" onClick={() => setBulkCount(10)} className="border-white/20 text-white">x10</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(1000)} className="border-white/20 text-white">x1K</Button>
-            <Button size="sm" variant="outline" onClick={() => setBulkCount(1000000)} className="border-white/20 text-white">x1M</Button>
-            <Button size="sm" variant="outline" onClick={() => setBulkCount(11000000)} className="border-[#a7fcc9]/50 text-[#a7fcc9]">11M</Button>
             <Button size="sm" variant="outline" onClick={() => setBulkCount(-1)} className="border-[#a7fcc9]/50 text-[#a7fcc9]">Max</Button>`
   if (t.includes(oldBulk)) t = t.replace(oldBulk, newBulk)
+
+  // CRITICAL: bulk was deducting tokens twice (optimistic + profilePatch)
+  const oldDeduct = `    if (useDiamonds) profilePatch.diamonds = Math.round(((profileRef.current.diamonds || 0) - totalCost) * 100) / 100;
+    else profilePatch.tokens = profileRef.current.tokens - totalCost;`
+  const newDeduct = `    if (useDiamonds) profilePatch.diamonds = Math.max(0, Math.round((balance - totalCost) * 100) / 100);
+    else profilePatch.tokens = Math.max(0, balance - totalCost);`
+  if (t.includes(oldDeduct)) t = t.replace(oldDeduct, newDeduct)
+
+  const oldOpt = `    const optimisticProfile = { ...profileRef.current, [currencyField]: Math.round(((profileRef.current[currencyField] || 0) - totalCost) * 100) / 100 };`
+  const newOpt = `    const newBal = useDiamonds ? Math.max(0, Math.round((balance - totalCost) * 100) / 100) : Math.max(0, balance - totalCost);
+    const optimisticProfile = { ...profileRef.current, [currencyField]: newBal };`
+  if (t.includes(oldOpt)) t = t.replace(oldOpt, newOpt)
 
   return t
 }
@@ -287,11 +292,11 @@ async function restoreHomeMarket() {
   const url =
     'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/d5642dc5d241c9a142a20a6f08ff53dc81484e50/pages/Home.jsx'
   try {
-    console.log('[prepare-src] downloading Home.jsx + multi-million bulk ...')
+    console.log('[prepare-src] downloading Home.jsx + bulk fixes ...')
     let source = await download(url)
     source = applyMarketLagPatches(source)
     fs.writeFileSync(homePath, source, 'utf8')
-    console.log('[prepare-src] restored pages/Home.jsx (11M+ bulk ok)')
+    console.log('[prepare-src] restored pages/Home.jsx (Max fair, no double charge)')
   } catch (e) {
     console.warn('[prepare-src] could not restore Home:', e.message)
   }
