@@ -9,13 +9,12 @@ import { Input } from '@/components/ui/input';
 import { ROLE_COLORS, ROLE_BADGES, ROLE_HIERARCHY, VERIFIED_BADGE_ID } from '@/lib/constants';
 import { containsSlur, containsIpAttempt } from '@/lib/slurFilter';
 import { getColorStyle } from '@/lib/colorStyle';
-import { Send, Image, Trash2, Hash, ChevronDown, Smile, Zap, Sparkles, Reply, X, BarChart3, Link2 } from 'lucide-react';
+import { Send, Image, Trash2, Hash, ChevronDown, Smile, Reply, X } from 'lucide-react';
 import Links from '@/pages/Links';
 import { handleBotCommand, getActiveGames, clearUnscramble, clearGtb, clearGtb2, clearGtp } from '@/lib/chatBot';
 import { clearRiddle, normalizeAnswer } from '@/lib/riddles';
 import InstGtbChannel from '@/components/game/InstGtbChannel';
 import PullsChannel from '@/components/game/PullsChannel';
-import PollWidget from '@/components/game/PollWidget';
 import { DEFAULT_BOT_AVATAR, getBotAvatar } from '@/lib/botAvatar';
 import { handleVerityMention } from '@/lib/verity';
 
@@ -37,18 +36,17 @@ export default function ChatView() {
   const [showEmojis, setShowEmojis] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [typers, setTypers] = useState([]);
-  const lastTypingWrite = useRef(0);
-  const myUsernameRef = useRef('');
-  useEffect(() => { myUsernameRef.current = profile?.username || ''; }, [profile?.username]);
-  useEffect(() => { if (!profile) return; (async () => { try { await base44.entities.Notification.updateMany({ user_id: profile.user_id, is_read: false, link: '/chat' }, { $set: { is_read: true } }); } catch (e) {} })(); }, [profile?.user_id]);
   const [channel, setChannel] = useState('global');
   const [blooks, setBlooks] = useState([]);
   const [packs, setPacks] = useState([]);
   const [badges, setBadges] = useState([]);
   const [playerBadges, setPlayerBadges] = useState([]);
+  const lastTypingWrite = useRef(0);
+  const myUsernameRef = useRef('');
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const sendingRef = useRef(false);
+  useEffect(() => { myUsernameRef.current = profile?.username || ''; }, [profile?.username]);
 
   const appendMessage = (msg) => {
     if (!msg || !msg.id || msg.is_deleted) return;
@@ -63,7 +61,11 @@ export default function ChatView() {
       await loadMessages();
       await Promise.all([getAllPlayers().then(setPlayers).catch(() => {}), getActiveBlooks().then(setBlooks).catch(() => {}), getPacks().then(setPacks).catch(() => {})]);
       await new Promise(r => setTimeout(r, 120));
-      await Promise.all([getBadges().then(setBadges).catch(() => {}), getPlayerBadges().then(setPlayerBadges).catch(() => {}), Promise.all([getClanMembers(), getClans()]).then(([members, clans]) => { const clanMap = {}; clans.forEach(c => { clanMap[c.id] = c; }); const byUser = {}; members.forEach(m => { byUser[m.user_id] = clanMap[m.clan_id]; }); setClanByUser(byUser); }).catch(() => {})]);
+      await Promise.all([getBadges().then(setBadges).catch(() => {}), getPlayerBadges().then(setPlayerBadges).catch(() => {}), Promise.all([getClanMembers(), getClans()]).then(([members, clans]) => {
+        const clanMap = {}; clans.forEach(c => { clanMap[c.id] = c; });
+        const byUser = {}; members.forEach(m => { byUser[m.user_id] = clanMap[m.clan_id]; });
+        setClanByUser(byUser);
+      }).catch(() => {})]);
     })();
     const unsub = base44.entities.ChatMessage.subscribe((event) => {
       try {
@@ -75,13 +77,13 @@ export default function ChatView() {
           if (me && data.mentions && data.username !== me && String(data.mentions).split(',').includes(me)) playPingSound();
           if (!data.is_deleted) appendMessage(data);
         } else if (event.type === 'update') {
-          const data = event.data || {}; const id = data.id || event.id; if (!id) return;
-          setMessages(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
+          const id = event.data?.id || event.id; if (!id) return;
+          setMessages(prev => prev.map(m => m.id === id ? { ...m, ...event.data } : m));
         } else if (event.type === 'delete') {
           const id = event.data?.id || event.id; if (!id) return;
           setMessages(prev => prev.filter(m => m.id !== id));
         }
-      } catch (e) { console.warn('chat sub', e); }
+      } catch (e) {}
     });
     const poll = setInterval(async () => {
       try {
@@ -100,12 +102,15 @@ export default function ChatView() {
     return () => { try { unsub(); } catch {} clearInterval(poll); };
   }, []);
 
-  useEffect(() => { if (showMentions) getAllPlayers().then(setPlayers).catch(() => {}); }, [showMentions]);
-  useEffect(() => { getBotAvatar().then(setBotAvatar).catch(() => {}); const unsub = base44.entities.GameSettings.subscribe((event) => { if (event.data?.key === 'bot_avatar') getBotAvatar().then(setBotAvatar).catch(() => {}); }); return unsub; }, []);
+  useEffect(() => { getBotAvatar().then(setBotAvatar).catch(() => {}); }, []);
   useEffect(() => {
     if (!profile) return;
     let mounted = true;
-    base44.entities.ChatTyping.filter({}, null, 100).then(rows => { if (!mounted) return; const now = Date.now(); setTypers(rows.filter(t => t.user_id !== profile.user_id && now - (t.last_typed || 0) < 4000)); }).catch(() => {});
+    base44.entities.ChatTyping.filter({}, null, 100).then(rows => {
+      if (!mounted) return;
+      const now = Date.now();
+      setTypers(rows.filter(t => t.user_id !== profile.user_id && now - (t.last_typed || 0) < 4000));
+    }).catch(() => {});
     const unsub = base44.entities.ChatTyping.subscribe((event) => {
       if (event.type === 'delete') setTypers(prev => prev.filter(t => t.id !== event.id));
       else if (event.data?.user_id !== profile.user_id && event.data?.last_typed) setTypers(prev => [...prev.filter(t => t.id !== event.id), { ...event.data, id: event.id }]);
@@ -114,8 +119,17 @@ export default function ChatView() {
     return () => { mounted = false; clearInterval(interval); unsub(); };
   }, [profile?.user_id]);
 
-  const sendTyping = () => { if (!profile) return; const now = Date.now(); if (now - lastTypingWrite.current < 2500) return; lastTypingWrite.current = now; base44.entities.ChatTyping.upsert([{ user_id: profile.user_id, username: profile.username, last_typed: now }], { key: 'user_id' }).catch(() => {}); };
-  const clearMyTyping = () => { if (!profile) return; base44.entities.ChatTyping.filter({ user_id: profile.user_id }).then(rows => { if (rows[0]) base44.entities.ChatTyping.delete(rows[0].id); }).catch(() => {}); };
+  const sendTyping = () => {
+    if (!profile) return;
+    const now = Date.now();
+    if (now - lastTypingWrite.current < 2500) return;
+    lastTypingWrite.current = now;
+    base44.entities.ChatTyping.upsert([{ user_id: profile.user_id, username: profile.username, last_typed: now }], { key: 'user_id' }).catch(() => {});
+  };
+  const clearMyTyping = () => {
+    if (!profile) return;
+    base44.entities.ChatTyping.filter({ user_id: profile.user_id }).then(rows => { if (rows[0]) base44.entities.ChatTyping.delete(rows[0].id); }).catch(() => {});
+  };
 
   const loadMessages = async () => {
     setMessagesLoading(true); setMessagesError('');
@@ -125,7 +139,7 @@ export default function ChatView() {
       catch (e) { if (attempt === 2) { setMessagesError(e?.message || 'Unable to load chat.'); setMessagesLoading(false); return; } await new Promise(r => setTimeout(r, 600 * (attempt + 1))); }
     }
     const seen = new Set();
-    const unique = msgs.reverse().filter(m => { if (seen.has(m.id)) return false; if (m.channel && m.channel !== 'global') return false; seen.add(m.id); return true; });
+    const unique = msgs.reverse().filter(m => { if (seen.has(m.id) || (m.channel && m.channel !== 'global')) return false; seen.add(m.id); return true; });
     setMessages(unique); setMessagesLoading(false);
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
@@ -154,19 +168,8 @@ export default function ChatView() {
       const now = Date.now(); const trimmed = (content || '').trim();
       if (containsSlur(trimmed)) { if ((profile.username || '').toLowerCase() !== 'icecreamy') { await updateProfile({ is_banned: true }); window.location.reload(); } return; }
       if (containsIpAttempt(trimmed)) { if ((profile.username || '').toLowerCase() !== 'icecreamy') { await updateProfile({ is_banned: true, ban_reason: 'Attempted to share an IP address in chat', banned_by: 'Security System' }); window.location.reload(); } return; }
-      if ((content || '').length > 1000) { await updateProfile({ is_muted: true, mute_until: new Date(now + 3600000).toISOString() }); await sendBotMessage(profile.username + ' was auto-muted for sending over 1000 characters.'); return; }
+      if ((content || '').length > 1000) { await updateProfile({ is_muted: true, mute_until: new Date(now + 3600000).toISOString() }); await sendBotMessage(profile.username + ' was auto-muted for over 1000 characters.'); return; }
       if (trimmed.startsWith('/')) {
-        const lowerCmd = trimmed.toLowerCase();
-        if (lowerCmd === '/everyone' || lowerCmd.startsWith('/everyone ')) {
-          const msgText = trimmed.slice('/everyone'.length).trim();
-          const freshPlayers = await getAllPlayers().catch(() => players);
-          const nowMs = Date.now();
-          const onlinePlayers = freshPlayers.filter(p => !p.is_banned && p.user_id !== profile.user_id && p.last_seen && nowMs - p.last_seen < 120000);
-          await postUserMessage(msgText || '@everyone!', imageUrl, { mentions: onlinePlayers.map(p => p.username).join(',') });
-          const notifs = onlinePlayers.map(p => ({ user_id: p.user_id, type: 'custom', title: '@everyone', message: profile.username + ' pinged everyone in #global', link: '/chat', is_read: false }));
-          if (notifs.length) { try { await base44.entities.Notification.bulkCreate(notifs); } catch {} }
-          setInput(''); return;
-        }
         try {
           const isStaff = ROLE_HIERARCHY[profile.role] >= ROLE_HIERARCHY.helper;
           const hasVerified = playerBadges.some(pb => pb.badge_id === VERIFIED_BADGE_ID);
@@ -176,40 +179,15 @@ export default function ChatView() {
         setInput(''); return;
       }
       if (profile.last_chat_time && now - profile.last_chat_time < 2000) return;
-      const spamCount = (profile.chat_spam_count || 0);
-      if (now - (profile.last_chat_time || 0) < 3000) {
-        if (spamCount >= 3) { await updateProfile({ is_muted: true, mute_until: new Date(now + 300000).toISOString(), chat_spam_count: 0 }); await sendBotMessage(profile.username + ' has been auto-muted for spam (5 minutes)'); return; }
-        await updateProfile({ chat_spam_count: spamCount + 1, last_chat_time: now, messages_sent: (profile.messages_sent || 0) + 1 });
-      } else { await updateProfile({ chat_spam_count: 0, last_chat_time: now, messages_sent: (profile.messages_sent || 0) + 1 }); }
+      await updateProfile({ last_chat_time: now, messages_sent: (profile.messages_sent || 0) + 1 });
       const games = await getActiveGames().catch(() => ({}));
       if (games.unscramble && trimmed.toLowerCase() === String(games.unscramble).toLowerCase()) {
-        await postUserMessage(content, imageUrl); await sendBotMessage(profile.username + ' unscrambled it! The answer was "' + games.unscramble + '". +50 tokens!'); await clearUnscramble(); await updateProfile({ tokens: (profile.tokens || 0) + 50 }); setInput(''); return;
+        await postUserMessage(content, imageUrl); await sendBotMessage(profile.username + ' unscrambled it! +50 tokens!'); await clearUnscramble(); await updateProfile({ tokens: (profile.tokens || 0) + 50 }); setInput(''); return;
       }
-      if (games.riddle && normalizeAnswer(trimmed) === normalizeAnswer(games.riddle.answer)) {
-        await postUserMessage(content, imageUrl); await sendBotMessage(profile.username + ' solved the riddle! +' + games.riddle.reward + ' tokens!'); await clearRiddle(); await updateProfile({ tokens: (profile.tokens || 0) + games.riddle.reward }); setInput(''); return;
-      }
-      if (games.gtb && normalizeAnswer(trimmed) === normalizeAnswer(games.gtb)) {
-        await postUserMessage(content, imageUrl); await sendBotMessage(profile.username + ' guessed it! The blook was "' + games.gtb + '". +100 tokens!'); await clearGtb(); await updateProfile({ tokens: (profile.tokens || 0) + 100 }); setInput(''); return;
-      }
-      if (games.gtb2 && normalizeAnswer(trimmed) === normalizeAnswer(games.gtb2)) {
-        await postUserMessage(content, imageUrl); await sendBotMessage(profile.username + ' guessed it! The blook was "' + games.gtb2 + '". +100 tokens!'); await clearGtb2(); await updateProfile({ tokens: (profile.tokens || 0) + 100 }); setInput(''); return;
-      }
-      if (games.gtp && normalizeAnswer(trimmed) === normalizeAnswer(games.gtp)) {
-        await postUserMessage(content, imageUrl); await sendBotMessage(profile.username + ' guessed it! The Pokemon was "' + games.gtp + '". +100 tokens!'); await clearGtp(); await updateProfile({ tokens: (profile.tokens || 0) + 100 }); setInput(''); return;
-      }
-      const freshPlayers = await getAllPlayers().catch(() => players);
-      const nowMs = Date.now();
-      const onlinePlayers = freshPlayers.filter(p => !p.is_banned && p.last_seen && nowMs - p.last_seen < 120000);
-      const onlineUsernames = new Set(onlinePlayers.map(p => p.username));
       const mentionMatches = (content || '').match(/@(\w+)/g) || [];
-      let mentions = mentionMatches.map(m => m.slice(1)).filter(u => u.toLowerCase() !== 'everyone' && onlineUsernames.has(u));
-      if (/@everyone\b/i.test(content || '')) {
-        mentions = [...new Set([...mentions, ...onlinePlayers.filter(p => p.user_id !== profile.user_id).map(p => p.username)])];
-        const notifs = onlinePlayers.filter(p => p.user_id !== profile.user_id).map(p => ({ user_id: p.user_id, type: 'custom', title: '@everyone', message: profile.username + ' pinged everyone in #global', link: '/chat', is_read: false }));
-        if (notifs.length) { try { await base44.entities.Notification.bulkCreate(notifs); } catch {} }
-      }
+      const mentions = mentionMatches.map(m => m.slice(1)).join(',');
       const replyExtra = replyingTo ? { reply_to_id: replyingTo.id, reply_to_username: replyingTo.username, reply_to_content: (replyingTo.content || '').slice(0, 100) } : {};
-      await postUserMessage(content, imageUrl, { mentions: mentions.join(','), ...replyExtra });
+      await postUserMessage(content, imageUrl, { mentions, ...replyExtra });
       if (/@verity\b/i.test(content || '')) handleVerityMention(content, profile).catch(() => {});
       setReplyingTo(null); setInput(''); clearMyTyping();
     } finally { sendingRef.current = false; setSending(false); }
@@ -222,50 +200,121 @@ export default function ChatView() {
   };
 
   const deleteMessage = async (id) => { try { await base44.entities.ChatMessage.update(id, { is_deleted: true }); setMessages(prev => prev.filter(m => m.id !== id)); } catch (e) {} };
-
   const canDelete = (m) => profile && (m.user_id === profile.user_id || ROLE_HIERARCHY[profile.role] >= ROLE_HIERARCHY.helper);
 
+  const profileMap = {};
+  players.forEach(p => { profileMap[p.user_id] = p; });
+  const userBadges = {};
+  playerBadges.forEach(pb => {
+    const b = badges.find(x => x.id === pb.badge_id);
+    if (!b) return;
+    if (!userBadges[pb.user_id]) userBadges[pb.user_id] = [];
+    userBadges[pb.user_id].push(b);
+  });
+
+  const channels = [
+    { id: 'global', label: 'global' },
+    { id: 'inst-gtb', label: 'inst-gtb' },
+    { id: 'pulls', label: 'pulls' },
+    { id: 'links', label: 'links' },
+  ];
+
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] max-w-4xl mx-auto">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
-        <Hash size={16} className="text-[#a7fcc9]" />
-        <span className="font-display text-[#a7fcc9]">global</span>
-        <span className="text-xs text-white/40 ml-auto">{messages.length} messages</span>
-      </div>
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-        {messagesLoading && <p className="text-white/50 text-sm">Loading chat...</p>}
-        {messagesError && <p className="text-red-400 text-sm">{messagesError}</p>}
-        {messages.map(m => (
-          <div key={m.id} className="group flex gap-2 items-start">
-            {m.avatar_url ? <img src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-white/10" />}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-display text-sm" style={{ color: ROLE_COLORS[m.user_role] || '#a7fcc9' }}>{m.username}</span>
-                {m.user_role && m.user_role !== 'player' && <span className="text-[10px]">{ROLE_BADGES[m.user_role] || ''}</span>}
-                {canDelete(m) && <button type="button" onClick={() => deleteMessage(m.id)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400"><Trash2 size={12} /></button>}
-                <button type="button" onClick={() => setReplyingTo(m)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-white"><Reply size={12} /></button>
-              </div>
-              {m.reply_to_username && <p className="text-[10px] text-white/40">replying to @{m.reply_to_username}: {(m.reply_to_content || '').slice(0, 60)}</p>}
-              {m.content && <p className="text-sm text-white/90 break-words whitespace-pre-wrap">{m.content}</p>}
-              {m.image_url && <img src={m.image_url} alt="" className="mt-1 max-h-48 rounded-lg" />}
-            </div>
-          </div>
+    <div className="flex flex-col h-[calc(100vh-3rem)]">
+      <div className="flex items-center gap-1 px-2 py-2 border-b border-white/10 overflow-x-auto">
+        {channels.map(ch => (
+          <button key={ch.id} type="button" onClick={() => setChannel(ch.id)} className={`px-3 py-1.5 rounded-lg text-sm font-display whitespace-nowrap ${channel === ch.id ? 'bg-white/20 text-[#a7fcc9]' : 'text-white/60 hover:bg-white/10'}`}>
+            <Hash size={12} className="inline mr-1" />{ch.label}
+          </button>
         ))}
-        <div ref={messagesEndRef} />
       </div>
-      {typers.length > 0 && <p className="text-xs text-white/40 px-3">{typers.map(t => t.username).join(', ')} typing...</p>}
-      {replyingTo && (
-        <div className="px-3 py-1 flex items-center gap-2 text-xs text-white/60 border-t border-white/10">
-          <Reply size={12} /> Replying to {replyingTo.username}
-          <button type="button" onClick={() => setReplyingTo(null)} className="ml-auto"><X size={12} /></button>
+
+      {channel === 'global' && (
+        <>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messagesLoading && <p className="text-white/50 text-sm">Loading chat...</p>}
+            {messagesError && <p className="text-red-400 text-sm">{messagesError}</p>}
+            {messages.map(msg => {
+              const isMention = profile?.username && msg.mentions && String(msg.mentions).split(',').includes(profile.username);
+              const clan = clanByUser[msg.user_id];
+              const nc = profileMap[msg.user_id]?.name_color;
+              const cs = getColorStyle(nc, ROLE_HIERARCHY[msg.user_role] >= ROLE_HIERARCHY.admin);
+              return (
+                <div key={msg.id} className={`flex gap-4 group ${isMention ? 'bg-[#00BFFF]/10 -mx-2 px-2 py-1 rounded' : ''}`}>
+                  <div className={`w-14 h-14 bg-white/10 flex-shrink-0 overflow-hidden ${msg.is_system ? 'rounded-full' : 'avatar-rounded-square'}`}>
+                    {msg.is_system ? (
+                      <img src={botAvatar} alt="Bot" className="w-full h-full object-contain" />
+                    ) : msg.avatar_url ? (
+                      <img src={msg.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-white/60">{msg.username?.[0]?.toUpperCase()}</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {clan && <span className="text-xs font-display px-1 rounded" style={{ color: clan.color || '#a7fcc9', border: `1px solid ${(clan.color || '#a7fcc9')}66` }}>[{clan.name}]</span>}
+                      <span className={`text-base font-display ${cs.className || ''}`} style={cs.style?.color ? cs.style : { color: ROLE_COLORS[msg.user_role] || '#a7fcc9' }}>
+                        {msg.user_role && ROLE_BADGES[msg.user_role]} {msg.username}
+                      </span>
+                      {(userBadges[msg.user_id] || []).map(b => (
+                        <img key={b.id} src={b.image_url} alt={b.name} title={b.name} className="w-5 h-5 object-contain" />
+                      ))}
+                      <span className="text-[10px] text-white/30">{msg.created_date && new Date(msg.created_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {canDelete(msg) && (
+                        <button type="button" onClick={() => deleteMessage(msg.id)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400"><Trash2 size={12} /></button>
+                      )}
+                      <button type="button" onClick={() => setReplyingTo(msg)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-white"><Reply size={12} /></button>
+                    </div>
+                    {msg.reply_to_username && (
+                      <p className="text-[10px] text-white/40">replying to @{msg.reply_to_username}: {(msg.reply_to_content || '').slice(0, 60)}</p>
+                    )}
+                    {msg.content && <p className="text-base text-white/90 break-words whitespace-pre-wrap">{msg.content}</p>}
+                    {msg.image_url && <img src={msg.image_url} alt="" className="mt-1 max-h-48 rounded-lg" />}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+          {typers.length > 0 && <p className="text-xs text-white/40 px-4">{typers.map(t => t.username).join(', ')} typing...</p>}
+          {replyingTo && (
+            <div className="px-4 py-1 flex items-center gap-2 text-xs text-white/60 border-t border-white/10">
+              <Reply size={12} /> Replying to {replyingTo.username}
+              <button type="button" onClick={() => setReplyingTo(null)} className="ml-auto"><X size={12} /></button>
+            </div>
+          )}
+          <div className="p-3 border-t border-white/10 flex gap-2 items-center relative">
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+            <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} className="border-white/20"><Image size={16} /></Button>
+            <Button type="button" variant="outline" size="icon" onClick={() => setShowEmojis(v => !v)} className="border-white/20"><Smile size={16} /></Button>
+            {showEmojis && (
+              <div className="absolute bottom-14 left-12 z-20 bg-panel border border-white/10 rounded-xl p-2 grid grid-cols-8 gap-1 shadow-xl">
+                {EMOJIS.map(em => (
+                  <button key={em} type="button" className="text-lg hover:bg-white/10 rounded p-1" onClick={() => { setInput(v => v + em); setShowEmojis(false); }}>{em}</button>
+                ))}
+              </div>
+            )}
+            <Input value={input} onChange={e => { setInput(e.target.value); sendTyping(); }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }} placeholder={profile?.is_muted ? 'You are muted' : 'Message #global'} disabled={!!profile?.is_muted || sending} className="flex-1" />
+            <Button type="button" onClick={() => sendMessage(input)} disabled={sending || !!profile?.is_muted} style={{ backgroundColor: '#a7fcc9', color: '#0c4a30' }}><Send size={16} /></Button>
+          </div>
+        </>
+      )}
+
+      {channel === 'inst-gtb' && (
+        <div className="flex-1 p-4 flex flex-col min-h-0">
+          <InstGtbChannel blooks={blooks} />
         </div>
       )}
-      <div className="p-3 border-t border-white/10 flex gap-2 items-center">
-        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-        <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} className="border-white/20"><Image size={16} /></Button>
-        <Input value={input} onChange={e => { setInput(e.target.value); sendTyping(); }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }} placeholder={profile?.is_muted ? 'You are muted' : 'Message #global'} disabled={!!profile?.is_muted || sending} className="flex-1" />
-        <Button type="button" onClick={() => sendMessage(input)} disabled={sending || !!profile?.is_muted} style={{ backgroundColor: '#a7fcc9', color: '#0c4a30' }}><Send size={16} /></Button>
-      </div>
+      {channel === 'pulls' && (
+        <div className="flex-1 p-4 flex flex-col min-h-0">
+          <PullsChannel />
+        </div>
+      )}
+      {channel === 'links' && (
+        <div className="flex-1 overflow-y-auto p-4">
+          <Links />
+        </div>
+      )}
     </div>
   );
 }
