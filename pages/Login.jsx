@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,12 @@ import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const fromRegister = location.state?.registered;
+  const [email, setEmail] = useState(location.state?.email || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info] = useState(location.state?.message || "");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -20,7 +23,6 @@ export default function Login() {
     setLoading(true);
     try {
       const result = await base44.auth.loginViaEmailPassword(email.trim(), password);
-      // Persist token if SDK returns it but does not auto-store on external hosts
       if (result?.access_token) {
         try {
           base44.auth.setToken(result.access_token, true);
@@ -28,14 +30,12 @@ export default function Login() {
           localStorage.setItem("token", result.access_token);
         } catch (_) {}
       }
-      // Full navigation so AuthContext re-reads the token from storage
       window.location.href = "/stats";
     } catch (err) {
       const msg =
         err?.message ||
         err?.data?.message ||
-        (err?.status === 401 ? "Invalid email or password" : null) ||
-        "Invalid email or password";
+        (err?.status === 401 ? "Invalid email or password" : "Login failed");
       setError(msg);
     } finally {
       setLoading(false);
@@ -43,7 +43,6 @@ export default function Login() {
   };
 
   const handleGoogle = () => {
-    // Return to this host after OAuth (works on Railway + Base44)
     const returnTo = window.location.origin + "/stats";
     base44.auth.loginWithProvider("google", returnTo);
   };
@@ -52,12 +51,12 @@ export default function Login() {
     <AuthLayout
       icon={LogIn}
       title="Welcome back"
-      subtitle="Log in to your account"
+      subtitle="Log in with your email and password"
       footer={
         <>
           Don't have an account?{" "}
           <Link to="/register" className="text-primary font-medium hover:underline">
-            Create one
+            Sign up
           </Link>
         </>
       }
@@ -85,6 +84,12 @@ export default function Login() {
         <p className="font-display text-sm tracking-wide">⚠️ USE AN EMAIL YOU DO NOT USE</p>
         <p className="text-[11px] text-amber-200/70 mt-1">Protect yourself — use a throwaway email, not your real one.</p>
       </div>
+
+      {info && fromRegister && (
+        <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-sm text-center">
+          {info}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
