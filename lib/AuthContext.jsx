@@ -5,10 +5,15 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext();
 
-// Same origin as the SDK uses for entity/auth calls when hosted externally.
+// Same-origin /api (Railway proxies to Base44). Fallback to public API if needed.
 const API_SERVER =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BASE44_SERVER_URL) ||
-  'https://base44.app';
+  '';
+
+function isDomainError(err) {
+  const msg = String(err?.message || err?.data?.message || err?.detail || '').toLowerCase();
+  return msg.includes('domain is not valid') || msg.includes('domain not valid');
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -29,20 +34,21 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
 
       if (!appParams.appId) {
-        setAuthError({
-          type: 'unknown',
-          message:
-            'Missing VITE_BASE44_APP_ID. Set it in Railway Variables and redeploy.',
-        });
+        // Still allow landing / login UI; show a soft message only on auth pages.
+        console.warn('Missing VITE_BASE44_APP_ID');
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
         setAuthChecked(true);
+        setIsAuthenticated(false);
         return;
       }
 
-      // Hit Base44 directly (not relative /api) so Railway static host works.
+      const baseURL = API_SERVER
+        ? `${API_SERVER}/api/apps/public`
+        : `/api/apps/public`;
+
       const appClient = createAxiosClient({
-        baseURL: `${API_SERVER}/api/apps/public`,
+        baseURL,
         headers: {
           'X-App-Id': appParams.appId,
         },
@@ -59,7 +65,6 @@ export const AuthProvider = ({ children }) => {
         if (appParams.token) {
           await checkUserAuth();
         } else {
-          // Still try me() in case the SDK stored a token under another key.
           try {
             const currentUser = await base44.auth.me();
             if (currentUser) {
@@ -78,6 +83,17 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
 
+        // Never block the whole site on domain / network errors from Base44.
+        if (isDomainError(appError)) {
+          console.warn('Base44 domain check failed; continuing in browse mode');
+          setAuthError(null);
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+          setIsLoadingPublicSettings(false);
+          setIsLoadingAuth(false);
+          return;
+        }
+
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           const reason = appError.data.extra_data.reason;
           if (reason === 'auth_required') {
@@ -91,15 +107,9 @@ export const AuthProvider = ({ children }) => {
               message: 'User not registered for this app',
             });
           } else {
-            setAuthError({
-              type: reason,
-              message: appError.message,
-            });
+            setAuthError(null);
           }
         } else {
-          // Soft-fail: still allow Login/Register pages to render.
-          // Missing public-settings must not block the auth UI on external hosts.
-          console.warn('Public settings unavailable; continuing to auth UI');
           setAuthError(null);
           setIsAuthenticated(false);
           setAuthChecked(true);
@@ -109,10 +119,9 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Unexpected error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred',
-      });
+      // Soft-fail: never render raw JSON errors to visitors
+      setAuthError(null);
+      setIsAuthenticated(false);
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
       setAuthChecked(true);
@@ -134,11 +143,7 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       setAuthChecked(true);
       setUser(null);
-
-      if (error.status === 401 || error.status === 403) {
-        // Not logged in — normal for the login page; don't force redirect loops.
-        setAuthError(null);
-      }
+      setAuthError(null);
     }
   };
 
@@ -147,14 +152,19 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
 
     if (shouldRedirect) {
-      base44.auth.logout(window.location.origin + '/login');
+      try {
+        base44.auth.logout(window.location.origin + '/login');
+      } catch {
+        window.location.href = '/login';
+      }
     } else {
-      base44.auth.logout();
+      try {
+        base44.auth.logout();
+      } catch {}
     }
   };
 
   const navigateToLogin = () => {
-    // Prefer in-app login route over Base44 hosted login when possible.
     if (window.location.pathname !== '/login') {
       window.location.href = '/login';
     }
