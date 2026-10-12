@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,12 +7,53 @@ import BlookJumpers from '@/components/BlookJumpers';
 
 const AUTH_BG = "https://media.base44.com/images/public/6a618722aa7aa154e6bca6b1/8133195b6_Screenshot_20260827-0318212.jpg";
 
+/** If staff saved a BanOverride, the banned user can clear their own profile (RLS allows own-row writes). */
+async function tryApplyBanOverride(profile) {
+  if (!profile?.user_id || !profile?.id) return false;
+  try {
+    const rows = await base44.entities.BanOverride.filter({
+      target_user_id: profile.user_id,
+      active: true,
+    });
+    if (!rows?.length) return false;
+    await base44.entities.PlayerProfile.update(profile.id, {
+      is_banned: false,
+      ban_reason: '',
+      banned_by: '',
+    });
+    // Deactivate overrides (best-effort)
+    for (const row of rows) {
+      try {
+        await base44.entities.BanOverride.update(row.id, { active: false });
+      } catch (_) {}
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 export default function BannedScreen({ profile }) {
   const [username, setUsername] = useState(profile?.username || '');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [checkingOverride, setCheckingOverride] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ok = await tryApplyBanOverride(profile);
+      if (cancelled) return;
+      if (ok) {
+        window.location.reload();
+        return;
+      }
+      setCheckingOverride(false);
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.id, profile?.user_id]);
 
   const submit = async () => {
     if (!reason.trim()) { setError('Please enter a reason for your appeal.'); return; }
@@ -45,6 +86,14 @@ export default function BannedScreen({ profile }) {
       setUnbanning(false);
     }
   };
+
+  if (checkingOverride) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0c4a30' }}>
+        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div
