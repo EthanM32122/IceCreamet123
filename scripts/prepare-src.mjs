@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build-time: restore Chat/Home/AdminPanel and apply market load + bulk fixes.
+ * Build-time: restore Chat/Home/AdminPanel/Bazaar and apply patches.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -198,6 +198,71 @@ function applyAdminUnbanPatches(t) {
   return t
 }
 
+/** Full bazaar UI (images + War Shop) + economy action helpers */
+function applyBazaarPatches(t) {
+  if (!t.includes("economyActions")) {
+    t = t.replace(
+      "import { BAZAAR_RESTRICTED_BLOOK_IDS } from '@/lib/hivelands';",
+      "import { BAZAAR_RESTRICTED_BLOOK_IDS } from '@/lib/hivelands';\nimport { bazaarList, bazaarBuy, bazaarCancel } from '@/lib/economyActions';"
+    )
+  }
+
+  // Safer buy via economy helper
+  t = t.replace(
+    /const buyListing = async \(listing\) => \{[\s\S]*?loadData\(\);\s*\};/,
+    `const buyListing = async (listing) => {
+    if (BAZAAR_RESTRICTED_BLOOK_IDS.has(listing.blook_id)) return;
+    if (!profile || profile.tokens < listing.price) return;
+    if (listing.seller_id === profile.user_id) return;
+    try {
+      const data = await bazaarBuy(listing.id);
+      if (data?.profile) await updateProfile(data.profile);
+      else await updateProfile({ tokens: profile.tokens - listing.price });
+    } catch (e) {
+      alert(e?.message || 'Purchase failed — try again');
+      return;
+    }
+    setMyBlooks(await base44.entities.PlayerBlook.filter({ user_id: profile.user_id, game: 'icecreamet' }));
+    loadData();
+  };`
+  )
+
+  t = t.replace(
+    /const cancelListing = async \(listing\) => \{[\s\S]*?loadData\(\);\s*\};/,
+    `const cancelListing = async (listing) => {
+    try {
+      await bazaarCancel(listing.id);
+    } catch (e) {
+      alert(e?.message || 'Cancel failed');
+      return;
+    }
+    loadData();
+  };`
+  )
+
+  // confirmList — prefer bazaarList when available
+  t = t.replace(
+    /const confirmList = async \(\) => \{[\s\S]*?setListDialog\(null\);[\s\S]*?loadData\(\);\s*\};/,
+    `const confirmList = async () => {
+    if (!listDialog || !listPrice) return;
+    if (BAZAAR_RESTRICTED_BLOOK_IDS.has(listDialog.blook_id)) return;
+    const price = parseInt(listPrice) || 0;
+    if (price <= 0) return;
+    try {
+      await bazaarList({ blook_id: listDialog.blook_id, price, isShiny: !!listDialog.isShiny });
+    } catch (e) {
+      alert(e?.message || 'Failed to list item');
+      return;
+    }
+    setListDialog(null);
+    setListPrice('');
+    loadData();
+  };`
+  )
+
+  return t
+}
+
 async function restore(name, url, patchFn) {
   try {
     console.log('[prepare-src] downloading', name, '...')
@@ -217,6 +282,8 @@ ensureDir(path.join(src, 'components'))
 await restore('Chat.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/2e551976635775dc1ca294dc1d0a8af3d9e0e389/pages/Chat.jsx', applyLiveMessagePatches)
 await restore('Home.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/d5642dc5d241c9a142a20a6f08ff53dc81484e50/pages/Home.jsx', applyMarketPatches)
 await restore('AdminPanel.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/35e68f3cf03208dad26d35f528897fdb136016af/pages/AdminPanel.jsx', applyAdminUnbanPatches)
+// Full bazaar with blook images + War Shop (bombs / shields)
+await restore('Bazaar.jsx', 'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/afe935d2/pages/Bazaar.jsx', applyBazaarPatches)
 
 copy('main.jsx', 'src/main.jsx')
 copy('App.jsx', 'src/App.jsx')
