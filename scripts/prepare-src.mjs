@@ -1,18 +1,12 @@
 #!/usr/bin/env node
 /**
  * Assembles a standard Base44/Vite `src/` tree from this repo's root layout.
- *
- * Repo stores frontend at the root:
- *   main.jsx, App.jsx, index.css, pages/, lib/, api/, hooks/,
- *   ui/, game/, minigames/, stats/, and root-level component files.
- *
- * Vite + @ imports expect:
- *   src/main.jsx, src/App.jsx, src/components/ui/, src/lib/, ...
- *
- * Run before `vite build` so Railway does not need path-alias hacks.
+ * Also restores the full original Chat UI (from a known-good commit) and
+ * applies only the live-message patches (appendMessage + 3s poll).
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import https from 'node:https'
 import { fileURLToPath } from 'node:url'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -38,10 +32,121 @@ function copy(fromRel, toRel) {
   console.log(`[prepare-src] ${fromRel} -> ${toRel}`)
 }
 
-// Clean previous assemble (keep node_modules/dist alone)
+function download(url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, { headers: { 'User-Agent': 'icecreamet-prepare-src' } }, (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          download(res.headers.location).then(resolve, reject)
+          return
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode} for ${url}`))
+          return
+        }
+        const chunks = []
+        res.on('data', (c) => chunks.push(c))
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+      })
+      .on('error', reject)
+  })
+}
+
+function applyLiveMessagePatches(source) {
+  let t = source
+
+  const anchor = '  const sendingRef = useRef(false);\n'
+  const helper = `
+  const appendMessage = (msg) => {
+    if (!msg || !msg.id || msg.is_deleted) return;
+    if (msg.game && msg.game !== 'icecreamet') return;
+    if (msg.channel && msg.channel !== 'global') return;
+    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg].slice(-80));
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+  };
+
+`
+  if (t.includes(anchor) && !t.includes('const appendMessage')) {
+    t = t.replace(anchor, anchor + helper)
+  }
+
+  const oldCreate = `        if (event.data.is_deleted) return;
+        setMessages(prev => prev.some(m => m.id === event.data.id) ? prev : [...prev, event.data].slice(-50));
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);`
+  const newCreate = `        if (event.data.is_deleted) return;
+        appendMessage(event.data);`
+  if (t.includes(oldCreate)) t = t.replace(oldCreate, newCreate)
+
+  const oldRet = `    return () => { unsub(); };
+  }, []);`
+  const newRet = `    const poll = setInterval(async () => {
+      try {
+        const msgs = await base44.entities.ChatMessage.filter({ is_deleted: false, game: 'icecreamet' }, '-created_date', 30);
+        if (!Array.isArray(msgs) || !msgs.length) return;
+        const incoming = msgs.filter(m => !m.channel || m.channel === 'global').reverse();
+        setMessages(prev => {
+          const byId = new Map(prev.map(m => [m.id, m]));
+          let changed = false;
+          for (const m of incoming) {
+            if (!byId.has(m.id)) { byId.set(m.id, m); changed = true; }
+          }
+          if (!changed) return prev;
+          return Array.from(byId.values())
+            .sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0))
+            .slice(-80);
+        });
+      } catch (e) {}
+    }, 3000);
+    return () => { try { unsub(); } catch {} clearInterval(poll); };
+  }, []);`
+  if (t.includes(oldRet)) t = t.replace(oldRet, newRet)
+
+  const oldPost = `    try {
+      base44.functions.invoke('discordSendChat', {
+        username: profile.username, content: content || '', avatarUrl: profile.avatar_url, imageUrl
+      }).catch(() => {});
+    } catch (e) {}
+    return msg;`
+  const newPost = `    appendMessage(msg);
+    try {
+      base44.functions.invoke('discordSendChat', {
+        username: profile.username, content: content || '', avatarUrl: profile.avatar_url, imageUrl
+      }).catch(() => {});
+    } catch (e) {}
+    return msg;`
+  if (t.includes(oldPost)) t = t.replace(oldPost, newPost)
+
+  const oldBot = "await base44.entities.ChatMessage.create({ content, username: 'ICECREAMET Bot', avatar_url: botAvatar, is_system: true, user_role: 'admin', game: 'icecreamet' });"
+  const newBot = "const botMsg = await base44.entities.ChatMessage.create({ content, username: 'ICECREAMET Bot', avatar_url: botAvatar, is_system: true, user_role: 'admin', game: 'icecreamet', channel: 'global' });\n    appendMessage(botMsg);"
+  if (t.includes(oldBot)) t = t.replace(oldBot, newBot)
+
+  return t
+}
+
+async function restoreOriginalChat() {
+  // Known-good full Chat UI before the simplified ChatView rewrite
+  const url =
+    'https://raw.githubusercontent.com/EthanM32122/IceCreamet123/2e551976635775dc1ca294dc1d0a8af3d9e0e389/pages/Chat.jsx'
+  try {
+    console.log('[prepare-src] downloading original Chat.jsx ...')
+    let source = await download(url)
+    source = applyLiveMessagePatches(source)
+    const out = path.join(root, 'pages', 'Chat.jsx')
+    fs.writeFileSync(out, source, 'utf8')
+    console.log('[prepare-src] restored pages/Chat.jsx (original UI + live messages)')
+  } catch (e) {
+    console.warn('[prepare-src] could not restore original Chat:', e.message)
+    console.warn('[prepare-src] keeping existing pages/Chat.jsx')
+  }
+}
+
+// --- main ---
 rmrf(src)
 ensureDir(src)
 ensureDir(path.join(src, 'components'))
+
+// Restore full original chat (network) before copying pages/
+await restoreOriginalChat()
 
 // Entry + styles
 copy('main.jsx', 'src/main.jsx')
@@ -79,7 +184,6 @@ for (const file of rootComponents) {
 const componentsDir = path.join(root, 'components')
 if (fs.existsSync(componentsDir)) {
   for (const name of fs.readdirSync(componentsDir)) {
-    // Skip nested dirs already handled above (ui/game/...) if present here
     const full = path.join(componentsDir, name)
     const st = fs.statSync(full)
     if (st.isFile()) {
