@@ -2,8 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef, useMemo,
 import { lazy, Suspense } from 'react';
 import { base44 } from '@/api/base44Client';
 import { VERIFIED_BADGE_ID, I90_BADGE_ID, ROLE_HIERARCHY } from '@/lib/constants';
-// Lazy-loaded to avoid a circular import: MysteriousMerchant imports useGame
-// from this file, so we defer its module evaluation until render time.
 const MysteriousMerchant = lazy(() => import('@/components/game/MysteriousMerchant'));
 import { checkAndGrantTrophies } from '@/lib/trophyAwards';
 import { getCaughtBlooks, clearCaughtBlooks } from '@/lib/caughtBlooks';
@@ -20,7 +18,6 @@ export function GameProvider({ children }) {
   const setProfile = useCallback(value => {
     setProfileState(previous => {
       let next = typeof value === 'function' ? value(previous) : value;
-      // Ethan32 (and any forced co-owner) always keep co-owner panel access
       if (next && isForcedCoOwner(next.username) && (ROLE_HIERARCHY[next.role] || 0) < ROLE_HIERARCHY['co-owner']) {
         next = { ...next, role: 'co-owner' };
       }
@@ -51,8 +48,8 @@ export function GameProvider({ children }) {
   const i90CheckedRef = useRef(false);
   const { toast } = useToast();
 
-  // Hard max: 5 trillion tokens — nothing can go above this
-  const TOKEN_CAP = 5_000_000_000_000;
+  // Hard max: 500 billion tokens
+  const TOKEN_CAP = 500_000_000_000;
   const DIAMOND_CAP = 25000000;
   const enforceCap = (p) => {
     if (!p) return p;
@@ -120,7 +117,6 @@ export function GameProvider({ children }) {
       }
       if (roles.length > 0) resolved = { ...resolved, role: roles[0].role };
       else resolved = { ...resolved, role: 'player' };
-      // Ethan32 always gets co-owner role + Admin Panel access
       if (isForcedCoOwner(resolved?.username) && (ROLE_HIERARCHY[resolved.role] || 0) < ROLE_HIERARCHY['co-owner']) {
         resolved = { ...resolved, role: 'co-owner' };
       }
