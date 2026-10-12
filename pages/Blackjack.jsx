@@ -47,7 +47,7 @@ function CardFace({ card, small }) {
 function CardBack({ small }) {
   const w = small ? 'w-11 h-16' : 'w-14 h-20 sm:w-16 sm:h-24';
   return (
-    <div className={`${w} rounded-lg shadow-lg border border-white/20 bg-gradient-to-br from-red-800 to-red-950 flex items-center justify-center`}
+    <div className={`${w} rounded-lg shadow-lg border border-white/20 bg-gradient-to-br from-red-800 to-red-950 flex items-center justify-center`}>
       <div className="w-[70%] h-[70%] rounded border border-yellow-600/40 bg-red-900/50" />
     </div>
   );
