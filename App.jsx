@@ -36,7 +36,6 @@ import Gambling from '@/pages/Gambling';
 import Blackjack from '@/pages/Blackjack';
 import BlackjackValues from '@/pages/BlackjackValues';
 import GamblingMines from '@/pages/GamblingMines';
-import Dice from '@/pages/Dice';
 import FlappyBirdPage from '@/pages/FlappyBirdPage';
 import GeometryDashPage from '@/pages/GeometryDashPage';
 import Discord from '@/pages/Discord';
@@ -114,7 +113,6 @@ const AuthenticatedApp = () => {
           <Route path="/minigames" element={<Minigames />} />
           <Route path="/gambling" element={<Gambling />} />
           <Route path="/gambling/mines" element={<GamblingMines />} />
-          <Route path="/gambling/dice" element={<Dice />} />
           <Route path="/blackjack" element={<Blackjack />} />
           <Route path="/blackjack/values" element={<BlackjackValues />} />
           <Route path="/flappybird" element={<FlappyBirdPage />} />
