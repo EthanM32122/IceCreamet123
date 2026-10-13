@@ -27,7 +27,14 @@ export function applyMarketPatches(t) {
         }
       }
       packList = packList || [];
-      blookList = blookList || [];`
+      blookList = blookList || [];
+      // Ensure pack fronts always have a usable image URL
+      packList = packList.map(p => {
+        if (!p) return p;
+        const front = p.image_url || p.background_url || p.image || p.cover_url || '';
+        const bg = p.background_url || p.image_url || '';
+        return { ...p, image_url: front || p.image_url, background_url: bg || p.background_url };
+      });`
   )
   t = t.replace(
     `    } catch (e) {
