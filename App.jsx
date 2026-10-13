@@ -56,7 +56,8 @@ import JoinApplication from '@/pages/JoinApplication';
 import Links from '@/pages/Links';
 import SpookyEvent from '@/pages/SpookyEvent';
 import SoupsOfHivelands from '@/pages/SoupsOfHivelands';
-import OAuthConsent from '@/pages/OAuthConsent';
+import AltEntry from '@/pages/AltEntry';
+import DownloadSource from '@/pages/DownloadSource';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isAuthenticated, isLoadingPublicSettings, authError, appPublicSettings } = useAuth();
@@ -81,9 +82,11 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/oauth-consent" element={<OAuthConsent />} />
       <Route path="/join" element={<JoinApplication />} />
+      <Route path="/join/:code" element={<JoinApplication />} />
       <Route path="/" element={isAuthenticated ? <Navigate to="/stats" replace /> : <Landing />} />
+      <Route path="/alt-entry" element={<AltEntry />} />
+      <Route path="/download-source" element={<DownloadSource />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={
