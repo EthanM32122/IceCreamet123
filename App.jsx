@@ -35,6 +35,8 @@ import Minigames from '@/pages/Minigames';
 import Gambling from '@/pages/Gambling';
 import Blackjack from '@/pages/Blackjack';
 import BlackjackValues from '@/pages/BlackjackValues';
+import GamblingMines from '@/pages/GamblingMines';
+import Dice from '@/pages/Dice';
 import FlappyBirdPage from '@/pages/FlappyBirdPage';
 import GeometryDashPage from '@/pages/GeometryDashPage';
 import Discord from '@/pages/Discord';
@@ -54,16 +56,16 @@ import JoinApplication from '@/pages/JoinApplication';
 import Links from '@/pages/Links';
 import SpookyEvent from '@/pages/SpookyEvent';
 import SoupsOfHivelands from '@/pages/SoupsOfHivelands';
-import AltEntry from '@/pages/AltEntry';
-import DownloadSource from '@/pages/DownloadSource';
+import OAuthConsent from '@/pages/OAuthConsent';
+import HomeRedirect from '@/pages/HomeRedirect';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isAuthenticated, authError, isLoadingPublicSettings } = useAuth();
+  const { isLoadingAuth, isAuthenticated, isLoadingPublicSettings, authError, appPublicSettings } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: '#0c4a30' }}>
-        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -80,14 +82,18 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/join/:code" element={<JoinApplication />} />
-      <Route path="/" element={<Landing />} />
-      <Route path="/alt-entry" element={<AltEntry />} />
-      <Route path="/download-source" element={<DownloadSource />} />
-      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-        <Route element={<GameProvider><Outlet /></GameProvider>}>
+      <Route path="/oauth-consent" element={<OAuthConsent />} />
+      <Route path="/join" element={<JoinApplication />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/stats" replace /> : <Landing />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={
+          <GameProvider>
+            <Outlet />
+          </GameProvider>
+        }>
         <Route element={<GameLayout />}>
-          <Route path="/market" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
@@ -104,6 +110,8 @@ const AuthenticatedApp = () => {
           <Route path="/auctions" element={<AuctionHouse />} />
           <Route path="/minigames" element={<Minigames />} />
           <Route path="/gambling" element={<Gambling />} />
+          <Route path="/gambling/mines" element={<GamblingMines />} />
+          <Route path="/gambling/dice" element={<Dice />} />
           <Route path="/blackjack" element={<Blackjack />} />
           <Route path="/blackjack/values" element={<BlackjackValues />} />
           <Route path="/flappybird" element={<FlappyBirdPage />} />
