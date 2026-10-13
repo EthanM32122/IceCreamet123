@@ -5,15 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Package } from 'lucide-react';
 import { DiamondIcon, TokenIcon } from '@/components/game/CurrencyIcon';
 
-// Soft ceiling only to avoid JS number issues; real limit is balance
-const HARD_CEILING = 100000000;
+// Real limit is token/diamond balance. Ceiling is just JS-safe max (~1000 trillion).
+const HARD_CEILING = 1e15;
 
-export default function PackPurchaseModal({ pack, open, onClose, onShowRates, onBuy, tokenBalance, diamondBalance, diamondMode, plusActive }) {
+export default function PackPurchaseModal({ open, onClose, pack, tokenBalance, diamondBalance, diamondMode, plusActive, onBuy }) {
   const [qty, setQty] = useState(1);
   useEffect(() => { if (open) setQty(1); }, [open, pack?.id]);
   if (!pack) return null;
 
-  const unitCost = diamondMode ? 15 : Math.round(Number(pack.cost) * (plusActive ? 0.9 : 1));
+  const unitCost = diamondMode
+    ? 1
+    : Math.round(Number(pack.cost) * (plusActive ? 0.9 : 1));
   const balance = Math.floor(Number(diamondMode ? (diamondBalance || 0) : (tokenBalance || 0)));
   const maxAffordable = unitCost > 0
     ? Math.min(HARD_CEILING, Math.max(0, Math.floor(balance / unitCost)))
@@ -27,38 +29,25 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg p-0 overflow-hidden bg-panel border-white/10">
-        <DialogTitle className="sr-only">{pack.name}</DialogTitle>
-        <div className="flex flex-col sm:flex-row">
-          <div
-            className="sm:w-1/2 aspect-square flex items-center justify-center relative"
-            style={{
-              background: pack.background_url
-                ? `url(${pack.background_url}) center/cover`
-                : 'linear-gradient(135deg, #a7fcc9, rgb(var(--user-sidebar)))'
-            }}
-          >
-            {pack.image_url ? (
-              <img src={pack.image_url} alt={pack.name} className="h-3/4 w-3/4 object-contain drop-shadow-lg" />
-            ) : (
-              <Package size={80} className="text-white/80" />
-            )}
+        <DialogTitle className="sr-only">Buy packs</DialogTitle>
+        <div className="p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
+              {pack.image_url
+                ? <img src={pack.image_url} alt="" className="w-full h-full object-contain" />
+                : <Package className="w-7 h-7 text-white/50" />}
+            </div>
+            <div>
+              <p className="font-display text-white text-lg" style={fontStyle}>{pack.name}</p>
+              <p className="text-xs text-white/50">Open any amount you can afford — no lag</p>
+            </div>
           </div>
-          <div className="sm:w-1/2 p-5 flex flex-col gap-3">
-            <h2 className="text-2xl font-display text-white leading-tight" style={fontStyle}>{pack.name}</h2>
-            <button
-              type="button"
-              onClick={onShowRates}
-              className="self-start text-xs px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-colors"
-            >
-              Show Drop Rates
-            </button>
-            <div className="flex items-center gap-2">
-              <span className={`flex items-center text-lg ${diamondMode ? 'text-cyan-400' : 'text-yellow-400'}`}>{diamondMode ? <DiamondIcon size={18} /> : <TokenIcon size={18} />}</span>
+          <div className="space-y-3">
+            <div className="text-sm text-white/70 flex items-center gap-2 flex-wrap">
+              <span>Cost each:</span>
+              {diamondMode ? <DiamondIcon size={16} /> : <TokenIcon size={16} />}
               <span className="text-white font-display">{unitCost.toLocaleString()}</span>
-              <span className="text-[10px] text-white/50">each</span>
-              {diamondMode
-                ? <span className="text-[10px] text-cyan-400">2x luck</span>
-                : (plusActive && <span className="text-[10px] text-[#a7fcc9]">10% Plus off</span>)}
+              {plusActive && !diamondMode && (<span className="text-[10px] text-[#a7fcc9]">10% Plus off</span>)}
             </div>
             <div>
               <label className="text-xs text-white/70 block mb-1">Quantity (any amount you can afford)</label>
@@ -78,6 +67,7 @@ export default function PackPurchaseModal({ pack, open, onClose, onShowRates, on
                 <Button type="button" variant="outline" onClick={() => setQty(10)} className="border-white/20 text-white text-xs">x10</Button>
                 <Button type="button" variant="outline" onClick={() => setQty(100)} className="border-white/20 text-white text-xs">x100</Button>
                 <Button type="button" variant="outline" onClick={() => setQty(1000)} className="border-white/20 text-white text-xs">x1K</Button>
+                <Button type="button" variant="outline" onClick={() => setQty(1000000)} className="border-white/20 text-white text-xs">x1M</Button>
                 <Button
                   type="button"
                   variant="outline"
