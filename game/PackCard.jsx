@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Package, Info } from 'lucide-react';
 import { DiamondIcon, TokenIcon } from '@/components/game/CurrencyIcon';
 
 export default function PackCard({ pack, onClick, onShowRates, onBulk, bulkCount, diamondMode }) {
   const fontStyle = pack.font_family ? { fontFamily: pack.font_family } : undefined;
   const bulkLabel = bulkCount === -1 ? 'Max' : `x${bulkCount || 10}`;
+
+  // Prefer dedicated front art; fall back to background so packs never look empty
+  const frontSrc = pack.image_url || pack.background_url || pack.image || pack.cover_url || '';
+  const bgSrc = pack.background_url || pack.image_url || '';
+  const [imgFailed, setImgFailed] = useState(false);
+
   return (
     <div
       onClick={onClick}
@@ -13,13 +19,21 @@ export default function PackCard({ pack, onClick, onShowRates, onBulk, bulkCount
       <div
         className="aspect-square flex items-center justify-center relative overflow-hidden"
         style={{
-          background: pack.background_url
-            ? `url(${pack.background_url}) center/cover`
+          background: bgSrc
+            ? `url(${bgSrc}) center/cover`
             : 'linear-gradient(135deg, #a7fcc9, rgb(var(--user-sidebar)))'
         }}
       >
-        {pack.image_url ? (
-          <img src={pack.image_url} alt={pack.name} className="h-3/4 object-contain drop-shadow-lg group-hover:scale-110 transition-transform" />
+        {frontSrc && !imgFailed ? (
+          <img
+            src={frontSrc}
+            alt={pack.name || 'Pack'}
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
+            onError={() => setImgFailed(true)}
+            className="h-3/4 max-w-[85%] object-contain drop-shadow-lg group-hover:scale-110 transition-transform"
+          />
         ) : (
           <Package size={56} className="text-white/80 group-hover:scale-110 transition-transform" />
         )}
