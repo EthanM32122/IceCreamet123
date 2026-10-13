@@ -96,6 +96,7 @@ const AuthenticatedApp = () => {
         }>
         <Route element={<GameLayout />}>
           <Route path="/home" element={<Home />} />
+          <Route path="/market" element={<Home />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
