@@ -57,7 +57,6 @@ import Links from '@/pages/Links';
 import SpookyEvent from '@/pages/SpookyEvent';
 import SoupsOfHivelands from '@/pages/SoupsOfHivelands';
 import OAuthConsent from '@/pages/OAuthConsent';
-import HomeRedirect from '@/pages/HomeRedirect';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isAuthenticated, isLoadingPublicSettings, authError, appPublicSettings } = useAuth();
